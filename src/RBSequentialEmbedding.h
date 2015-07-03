@@ -36,8 +36,8 @@ struct RBSERegion {
 
 class RBSEVertex {
 	std::vector<RBSEVertex *> path;
-	std::vector<RBSEAttachedNet *> attached_list;
-	std::vector<RBSEIncidentNet *> incident_list;
+	LinkedList<RBSEAttachedNet *> attached_list;
+	CyclicLinkedList<RBSEAttachedNet *> incident_list;
 	std::vector<RBSERegion> region_list;
 };
 

@@ -40,5 +40,7 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2")
 
-set(SOURCE_FILES src/main.cpp)
-add_executable(RBRouter ${SOURCE_FILES} src/RBRouter.cpp src/RBRouter.h src/RBSequentialEmbedding.cpp src/RBSequentialEmbedding.h src/RBBase.cpp src/RBBase.h src/RBShortestPath.cpp src/RBShortestPath.h)
+set(SOURCE_FILES src/main.cpp src/RBRouter.cpp src/RBSequentialEmbedding.cpp
+src/RBBase.cpp src/RBShortestPath.cpp src/Box2D/b2BlockAllocator.cpp
+src/Box2D/b2TrackedBlock.cpp src/Box2D/b2Settings.cpp)
+add_executable(RBRouter ${SOURCE_FILES})

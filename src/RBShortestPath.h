@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <algorithm>
+#include "RBBase.h"
 
 class RBShortestPath {
 	typedef unsigned int ID;

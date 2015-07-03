@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <vector>
+#include "Box2D/b2BlockAllocator.h"
 
 void ensure(const bool cond, const char *msg) {
 	if (!cond) perror(msg);
@@ -22,6 +23,84 @@ struct Point {
 struct Segment {
 	Point s, e;
 };
+
+
+template<typename T>
+struct LinkedList {
+
+	static b2BlockAllocator *allocator;
+
+	struct ListNode {
+		ListNode *prev, *next;
+		T data;
+		ListNode() {}
+		ListNode(const T &_data) : data(_data) {}
+	} *head, *tail;
+	int n_nodes;
+	LinkedList() {
+		if (this->allocator == NULL) {
+			this->allocator = new b2BlockAllocator();
+		}
+
+		void *mem = this->allocator->Allocate(sizeof(ListNode));
+		this->tail = new (mem) ListNode();
+		this->tail->prev = this->tail->next = NULL;
+		this->head = this->tail;
+	}
+	// Append data after node x
+	ListNode *append(ListNode *x, const T &data) {
+		void *mem = this->allocator->Allocate(sizeof(ListNode));
+		ListNode *q = new (mem) ListNode(data);
+		q->next = x->next;
+		if (q->next != NULL)
+			q->next->prev = q;
+		q->prev = x, x->next = q;
+		++n_nodes;
+		return q;
+	}
+	// Remove node x
+	void remove(ListNode *q) {
+		if (q->prev) q->prev->next = q->next;
+		if (q->next) q->next->prev = q->prev;
+		q->~ListNode();
+		this->allocator->Free(q, sizeof(ListNode));
+		--n_nodes;
+	}
+	// Locate internal node using user-provided function
+	ListNode *find_if(bool (*func)(const T &)) {
+		for (ListNode *p = this->head; p != this->tail; ++p)
+			if (func(p->data)) return p;
+		return NULL;
+	}
+	// Map function on every node
+	void map(void (*func)(T &)) {
+		for (ListNode *p = this->head; p != this->tail; ++p)
+			func(p->data);
+	}
+};
+
+template<typename T>
+struct CyclicLinkedList : public LinkedList<T> {
+	typedef typename LinkedList<T>::ListNode ListNode;
+
+	CyclicLinkedList() : LinkedList<T>() {
+		this->head->prev = this->head->next = this->head;
+	}
+	// Locate internal node using user-provided function
+	ListNode *find_if(bool (*func)(const T &)) {
+		for (ListNode *p = this->head; p != this->tail; ++p)
+			if (func(p->data)) return p;
+		if (func(this->tail)) return this->tail;
+		return NULL;
+	}
+	// Map function on every node
+	void map(void (*func)(T &)) {
+		for (ListNode *p = this->head; p != this->tail; ++p)
+			func(p->data);
+		func(this->tail);
+	}
+};
+
 
 class RoutingPlan {
 

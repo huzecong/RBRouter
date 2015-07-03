@@ -15,3 +15,7 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 void RBSequentialEmbedding::roar(const std::vector<RBSEVertex>::iterator &it) {
 
 }
+
+double RBSequentialEmbedding::length() {
+	return 0;
+}
