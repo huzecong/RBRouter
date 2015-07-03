@@ -8,8 +8,8 @@
 
 #include <vector>
 #include <utility>
-#include "RBBase.h"
 #include "RBSequentialEmbedding.h"
+#include "RBBase.h"
 
 class RBRouter {
 	RBNet net;

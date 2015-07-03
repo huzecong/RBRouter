@@ -9,81 +9,44 @@
 #include <vector>
 #include <utility>
 #include "RBBase.h"
+#include "RBShortestPath.h"
 
 
-class RoutingPlan {
-
+struct RBSENet {
+	const int type;
 };
 
-class RBNet {
-public:
-	typedef unsigned int ID;
-
-private:
-	std::vector<Point> point;
-	std::vector<std::pair<ID, ID>> net;
-	std::vector<std::vector<ID>> link;
-	double m_width, m_height;
-
-public:
-	RBNet() {}
-	RBNet(double _w, double _h, const std::__1::vector<Point> &vec)
-			: m_width(_w), m_height(_h), point(vec),
-			  link(vec.size(), std::__1::vector<ID>()) {}
-	ID add_point(const Point &p) {
-		point.push_back(p);
-		link.push_back(std::__1::vector<ID>());
-		return static_cast<ID>(point.size()) - 1;
-	}
-	void add_net(ID id1, ID id2) {
-		ensure(id1 < this->n_points() && id2 < this->n_points(),
-			   "Invalid net: ID incorrect");
-		ensure(id1 != id2, "Invalid net: id1 == id2");
-		net.emplace_back(id1, id2);
-		link[id1].push_back(id2);
-		link[id2].push_back(id1);
-	}
-
-	size_t n_points() const { return this->point.size(); }
-	size_t n_nets() const { return this->net.size(); }
-	const std::vector<ID> &links_from(ID x) const {
-		ensure(x < this->n_points(), "ID incorrect");
-		return this->link[x];
-	}
-	std::vector<ID> &links_from(ID x) {
-		ensure(x < this->n_points(), "ID incorrect");
-		return this->link[x];
-	}
-	double &width() { return m_width; }
-	const double &width() const { return m_width; }
-	double &height() { return m_height; }
-	const double &height() const { return m_height; }
-
-	// Create component from given IDs
-	RBNet subnet(std::__1::vector<ID> vec) const;
+struct RBSEAttachedNet : public RBSENet {
+	const int type = 0;
 };
 
-class RBSEAttachedNet {
-
+struct RBSEIncidentNet : public RBSENet {
+	const int type = 1;
 };
 
-class RBSEIncidentNet {
-
+struct RBSEPort {
+	double start_angle, end_angle;
 };
 
-class RBSEPath {
-
+struct RBSERegion {
+	int n_ports, n_nets;
+	RBSEPort port[2];
+	RBSENet *net[2];
 };
 
-class RBSEPoint {
-	RBSEPath path;
-
+class RBSEVertex {
+	std::vector<RBSEVertex *> path;
+	std::vector<RBSEAttachedNet *> attached_list;
+	std::vector<RBSEIncidentNet *> incident_list;
+	std::vector<RBSERegion> region_list;
 };
 
 class RBSequentialEmbedding {
-	typedef std::vector<RBSEPoint>::iterator Point_Iterator;
+	typedef std::vector<RBSEVertex>::iterator Point_Iterator;
 	RBNet net;
-	std::vector<RBSEPoint> point;
+	std::vector<RBSEVertex> point;
+
+	RBShortestPath graph;
 
 public:
 	RBSequentialEmbedding() {}

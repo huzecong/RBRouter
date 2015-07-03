@@ -29,7 +29,7 @@ pair<double, RoutingPlan *> RBRouter::solve_with_plan() {
 }
 
 vector<unsigned int> RBRouter::find_order(const RBNet &net) {
-	unsigned int n = net.n_points();
+	unsigned int n = net.n_nets();
 	vector<unsigned int> seq(n);
 	for (unsigned int i = 0; i < n; ++i)
 		seq[i] = i;
