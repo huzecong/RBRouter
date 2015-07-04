@@ -100,10 +100,15 @@ void PSPlot::plotLines(ostream &out, float startX, float startY, float step, flo
     for (int i = 0; i < (int)lines_.size(); i++)
     {
         PSLine &line = lines_[i];
-        int r = (int)(line.color_.r_*225);
-        int g = (int)(line.color_.g_*225);
-        int b = (int)(line.color_.b_*225);
-        out << r << " " << g << " " << b << " setrgbcolor" << endl;
+//        int r = (int)(line.color_.r_*225);
+//        int g = (int)(line.color_.g_*225);
+//        int b = (int)(line.color_.b_*225);
+        double r = line.color_.r_;
+        double g = line.color_.g_;
+        double b = line.color_.b_;
+        sprintf(lineStr, "%.2lf %.2lf %.2lf setrgbcolor\n", r, g, b);
+        out << lineStr;
+//        out << r << " " << g << " " << b << " setrgbcolor" << endl;
         float x1 = computeX(lines_[i].x1_, startX, blX, step);
         float x2 = computeX(lines_[i].x2_, startX, blX, step);
         float y1 = computeY(lines_[i].y1_, startY, blY, step);
@@ -215,3 +220,48 @@ void PSPlot::draw(std::string fileName)
     out.close();
 }
 
+void plot_postscript(string filename, const vector<Point> &point,
+                     const RBRoutingPlan &plan) {
+    vector<PSLine> lines;
+    vector<PSArc> arcs;
+    PSColor black;
+    black.r_ = black.g_ = black.b_ = 0.0;
+    black.alpha_ = 1.0;
+    for (const Point &p : point) {
+        PSArc arc;
+        arc.centerX_ = p.x;
+        arc.centerY_ = p.y;
+        arc.radius_ = 0.25;
+        arc.startAngle_ = 0.0;
+        arc.endAngle_ = 2 * M_PI;
+        arc.width_ = 0.25;
+        arc.color_ = black;
+        arcs.push_back(arc);
+    }
+    srand(time(0));
+    for (const vector<ID> &vec : plan.path) {
+        PSColor color;
+        color.r_ = (float)(rand() % (12 + 1)) / 12;
+        color.g_ = (float)(rand() % (12 + 1)) / 12;
+        color.b_ = (float)(rand() % (12 + 1)) / 12;
+        color.alpha_ = 1.0;
+//		debug(color.r_ << " " << color.g_ << " " << color.b_);
+        for (int i = 0; i + 1 < vec.size(); ++i) {
+            Point a = point[vec[i]];
+            Point b = point[vec[i + 1]];
+            PSLine line;
+            line.x1_ = a.x;
+            line.y1_ = a.y;
+            line.x2_ = b.x;
+            line.y2_ = b.y;
+            line.width_ = 0.5;
+            line.color_ = color;
+            lines.push_back(line);
+        }
+    }
+
+    PSPlot plot;
+    plot.setLines(lines);
+    plot.setArcs(arcs);
+    plot.draw(filename);
+}

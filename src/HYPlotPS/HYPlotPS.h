@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include "../RBBase.h"
 
 struct PSColor {
     float r_;
@@ -56,6 +57,9 @@ public:
     void setArcs(std::vector<PSArc> &arcs) { arcs_ = arcs; }
     void draw(std::string fileName);
 };
+
+void plot_postscript(std::string filename, const std::vector<Point> &point,
+                     const RBRoutingPlan &plan);
 
 #endif
 

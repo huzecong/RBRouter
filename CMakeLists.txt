@@ -38,7 +38,7 @@ endif()
 
 # include for local package
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 set(SOURCE_FILES src/main.cpp src/RBRouter.cpp src/RBSequentialEmbedding.cpp
 src/RBBase.cpp src/RBShortestPath.cpp src/Box2D/b2BlockAllocator.cpp

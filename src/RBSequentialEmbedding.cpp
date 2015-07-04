@@ -7,6 +7,9 @@
 #include <utility>
 #include <vector>
 #include "RBSequentialEmbedding.h"
+#if __RB_DEBUG
+#include "HYPlotPS/HYPlotPS.h"
+#endif
 
 using namespace std;
 
@@ -66,11 +69,13 @@ T find_prev(LinkedList<T> &list, double angle) {
 	const auto func = [angle](const T &data) -> double {
 		double t_angle = data->angle;
 		if (t_angle > angle) t_angle -= M_PI;
-		if (angle - t_angle <= M_PI) {
+//		if (angle - t_angle <= M_PI) {
 			return angle - t_angle;
-		} else return DBL_MAX;
+//		} else return DBL_MAX;
 	};
-	return list.find_minimum(func)->data;
+	auto *node = list.find_minimum(func);
+	if (node == NULL) return T();
+	else return node->data;
 }
 
 template<typename T>
@@ -78,11 +83,13 @@ T find_next(LinkedList<T> &list, double angle) {
 	const auto func = [angle](const T &data) -> double {
 		double t_angle = data->angle;
 		if (t_angle < angle) t_angle += M_PI;
-		if (t_angle - angle <= M_PI) {
+//		if (t_angle - angle <= M_PI) {
 			return t_angle - angle;
-		} else return DBL_MAX;
+//		} else return DBL_MAX;
 	};
-	return list.find_minimum(func)->data;
+	auto *node = list.find_minimum(func);
+	if (node == NULL) return T();
+	else return node->data;
 }
 
 RBSEPort find_port(LinkedList<RBSEPort> &list, double angle) {
@@ -96,25 +103,35 @@ RBSEPort find_port(LinkedList<RBSEPort> &list, double angle) {
 
 void insert_net(LinkedList<RBSENet *> &list, RBSENet *net) {
 	double angle = net->angle;
+	// find_next
 	const auto func = [angle](RBSENet * const &data) -> double {
 		double t_angle = data->angle;
-		if (t_angle > angle) t_angle -= M_PI;
-		if (angle - t_angle <= M_PI) {
-			return angle - t_angle;
+		if (t_angle < angle) t_angle += M_PI;
+		if (t_angle - angle <= M_PI) {
+			return t_angle - angle;
 		} else return DBL_MAX;
 	};
 	auto *x = list.find_minimum(func);
-	list.append(x, net);
+	if (x == NULL) list.append(net);
+	else list.append(x, net);
 }
 
 
 RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 											 const vector<unsigned int> &seq) {
 	debug("Before embedding");
+#if __RB_DEBUG
+	debug("\tembed sequence:");
+	cerr << "\t";
+	for (auto x : seq)
+		cerr << x << " ";
+	cerr << endl;
+#endif
 	// Initialize
 	this->net = net;
 	RBSEVertex::allocator = new b2BlockAllocator();
 	RBSERegion::allocator = new b2BlockAllocator();
+	RBSERegion::init();
 
 	// Create initial open regions and add all pairs of edges
 	for (int i = 0; i < net.n_points(); ++i) {
@@ -123,7 +140,7 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 		v->point = net.point[i];
 		RBSERegion *region = new RBSERegion();
 		region->belong_vertex = v;
-		region->port.append(make_port(0.0, 2 * M_PI));
+		region->port.append(make_port(-M_PI, M_PI));
 		region->is_open = true;
 		for (int j = 0; j < i; ++j) {
 			bool valid = true;
@@ -143,7 +160,6 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 		v->open_region.append(make_pair(region, e));
 		v->region_list.append(region);
 		this->vertex.push_back(v);
-		debug("\t\tembed: init point " << i);
 	}
 
 	debug("\tembed: init");
@@ -155,6 +171,8 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 		pair<ID, ID> cur_net = net.net[net_id];
 		vector<ID> path = graph.shortest_path(cur_net.first, cur_net.second);
 		vector<ID> plan_path;
+		for (int i = 1; i + 1 < path.size(); ++i)
+			path[i] -= net.n_points();
 		for (int i = 1; i + 1 < path.size(); ++i)
 			plan_path.push_back(RBSERegion::regions[path[i]]
 										->belong_vertex->id);
@@ -346,8 +364,9 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 			// Validate and add edges for new regions
 			for (int _nr = 0; _nr < 2; ++_nr) {
 				RBSERegion *new_region = nr[_nr];
+				if (new_region == NULL) break;
 				new_region->belong_vertex = region->belong_vertex;
-				new_region->link.clear();
+				new_region->link.reset();
 				for (auto *p = region->link.head;
 					 p != region->link.tail; p = p->next) {
 					RBSERegion *node = p->data.first;
@@ -367,8 +386,9 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 							open_region.append(make_pair(new_region, e));
 				}
 			}
-			delete region;
 		}
+		for (int i = 1; i + 1 < path.size(); ++i)
+			delete RBSERegion::regions[path[i]];
 
 		debug("\t\tembed: finished net " << _net);
 	}
@@ -379,6 +399,15 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &net,
 		for (int i = 0; i + 1 < vec.size(); ++i)
 			this->plan.length += dist(net.point[vec[i]], net.point[vec[i + 1]]);
 	}
+	debug("\tembed length: " << this->plan.length);
+	debug("After embedding");
+
+	static char run_times = 'a' - 1;
+	++run_times;
+	string filename = "run";
+	filename.append(1, run_times);
+	filename += ".ps";
+	plot_postscript(filename, this->net.point, this->plan);
 }
 
 void RBSequentialEmbedding::roar(const Point_Iterator &it) {

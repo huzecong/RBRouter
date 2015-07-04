@@ -2,6 +2,9 @@
 // Created by Kanari on 15/7/3.
 //
 
+#include <climits>
+#include <cstdlib>
+#include <ctime>
 #include <queue>
 #include <string>
 #include <vector>
@@ -18,62 +21,67 @@ double RBRouter::solve() {
 	// Sequential net embedding
 	RBSequentialEmbedding embedding(net, seq);
 	debug("Finished embedding");
-	// ROAR optimization
-	for (auto it = embedding.point_iterator_begin();
-		 it != embedding.point_iterator_end(); ++it) {
-		embedding.roar(it);
-	}
+
+	#if __RB_DEBUG
+	debug("Sequence:");
+	print(seq);
+	#endif
 
 	double result = embedding.length();
 	this->plan = embedding.routing_plan();
 	return result;
 }
 
-vector<unsigned int> RBRouter::find_order(const RBNet &net) {
-	unsigned int max = net.n_nets(); // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	vector<unsigned int> seq(max);
-	for (unsigned int i = 0; i < max; ++i)
-		seq[i] = i;
+vector<ID> sequence(int n) {
+	vector<ID> ret(n, 0);
+	for (int i = 0; i < n; ++i)
+		ret[i] = i;
+	return ret;
+}
+
+vector<ID> RBRouter::find_order(const RBNet &net) {
+	unsigned int max = net.n_nets();
+	vector<ID> seq = sequence(max);
 	unsigned int m = net.n_points();
 	
 	// Implementation here
 	typedef unsigned int ID;
 	
 	// First find all of the components
-	std::vector < std::vector<ID> > cpnID;
-	std::vector<RBNet> components;
-	std::vector<double> lengths;
+	vector<vector<ID>> cpnID;
+	vector<RBNet> components;
+	vector<double> lengths;
 	bool *is_linked = new bool[m];
 	for(int i = 0; i < m; ++i)
 		is_linked[i] = 0;
 
-	debug("\tfind_order: init");
+	debug("\tfind_order: init m=" << m);
 	
 	for(int i = 0; i < m; ++i) {
+		debug("\t\tfind_order: before checking " << i);
 		if(!is_linked[i]) {
+			debug("\t\tfind_order: before processing " << i);
 			std::queue<ID> q;
 			std::vector<ID> cpn;
 			q.push(i);
-			int y = i;
+			is_linked[i] = true;
 			while(!q.empty()) {
-				if(!is_linked[y]) {
-					is_linked[y] = 1;
-					cpn.push_back(y);
-					std::vector<ID> lfi = net.links_from(y);
-					for(unsigned ii = 0; ii < lfi.size(); ++ii) {
-						q.push(lfi[ii]);
-					}
-				}
+				int y = q.front();
 				q.pop();
-				y = q.front();
+				const vector<pair<ID, ID>> &lfi = net.links_from(y);
+				for(unsigned ii = 0; ii < lfi.size(); ++ii) {
+					int node = lfi[ii].first;
+					if (is_linked[node]) continue;
+					is_linked[node] = true;
+					q.push(lfi[ii].first);
+					cpn.push_back(lfi[ii].second);
+				}
 			}
 			cpnID.push_back(cpn);
-			debug("\t\tfind_order: before subnet " << i);
 			RBNet rb = net.subnet(cpn);
-			debug("\t\tfind_order: after subnet " << i);
 			components.push_back(rb);
 			debug("\t\tfind_order: before embedding " << i);
-			RBSequentialEmbedding re(rb, cpn);
+			RBSequentialEmbedding re(rb, sequence(rb.n_nets()));
 			debug("\t\tfind_order: after embedding " << i);
 			lengths.push_back(re.length());
 		}
@@ -98,21 +106,18 @@ vector<unsigned int> RBRouter::find_order(const RBNet &net) {
 				Matrix[i][j] = 0;
 				continue;
 			}
+
+			RBNet _net = components[i];
+			_net.combine(components[j]);
 			
-			std::vector<unsigned int> _seq;
-			_seq = cpnID[i];
-			for(int ii = 0; ii < cpnID[j].size(); ++ii)
-				_seq.push_back(cpnID[j][ii]);
-			RBNet _net = net.subnet(_seq);	
-			
-			RBSequentialEmbedding aij(_net, _seq);
+			RBSequentialEmbedding aij(_net, sequence(_net.n_nets()));
 			Matrix[i][j] = aij.length() - lengths[i] - lengths[j];
 			_s += Matrix[i][j];
 		}
 		s[i] = _s;
 	}
 	
-	std::vector <ID> ret(n);
+	vector<ID> ret(n);
 	for(int i = 0; i < n; ++i) {
 		int k = n - i - 1;
 		double min = -1;
@@ -141,39 +146,15 @@ vector<unsigned int> RBRouter::find_order(const RBNet &net) {
 	}
 
 	debug("\tfind_order: matrix");
-	
-	for(int i = 0; i < n; ++i) {
-		delete [] s;
-		delete [] selected;
+
+	delete [] s;
+	delete [] selected;
+	for(int i = 0; i < n; ++i)
 		delete [] Matrix[i];
-	}
 	delete [] Matrix;
 	return seq;
 }
 
 void RBRouter::plot(string filename) const {
-	vector<PSLine> lines;
-	for (const vector<ID> &vec : this->plan.path) {
-		PSColor color;
-		color.r_ = rand() % 256;
-		color.g_ = rand() % 256;
-		color.b_ = rand() % 256;
-		color.alpha_ = 255;
-		for (int i = 0; i + 1 < vec.size(); ++i) {
-			Point a = net.point[vec[i]];
-			Point b = net.point[vec[i + 1]];
-			PSLine line;
-			line.x1_ = a.x;
-			line.y1_ = a.y;
-			line.x2_ = b.x;
-			line.y2_ = b.y;
-			line.width_ = 1.0;
-			line.color_ = color;
-			lines.push_back(line);
-		}
-	}
-
-	PSPlot plot;
-	plot.setLines(lines);
-	plot.draw(filename);
+	plot_postscript(filename, this->net.point, this->plan);
 }

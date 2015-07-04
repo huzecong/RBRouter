@@ -78,18 +78,18 @@ struct RBSERegion {
 
 	RBSERegion() {
 		if (free_id.size() > 0) {
-			id = free_id[free_id.size() - 1];
+			this->id = free_id[free_id.size() - 1];
 			free_id.pop_back();
 		} else {
-			id = id_cnt++;
+			this->id = id_cnt++;
+			if (regions.size() <= this->id)
+				regions.resize(this->id + 1);
 		}
-		if (regions.size() <= id)
-			regions.resize(id + 1);
-		regions[id] = this;
+		regions[this->id] = this;
 	}
 	~RBSERegion() {
-		free_id.push_back(id);
-		regions[id] = NULL;
+		free_id.push_back(this->id);
+		regions[this->id] = NULL;
 	}
 };
 

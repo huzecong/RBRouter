@@ -71,6 +71,13 @@ inline bool colinear(const Point &a, const Point &b, const Point &c) {
 	return equal(cross_product(a, b, c), 0.0);
 }
 
+template<typename T>
+inline void print(const std::vector<T> &vec) {
+	for (const auto &x : vec)
+		std::cerr << x << " ";
+	std::cerr << std::endl;
+}
+
 
 template<typename T>
 struct LinkedList {
@@ -94,6 +101,14 @@ struct LinkedList {
 		this->tail->prev = this->tail->next = NULL;
 		this->head = this->tail;
 	}
+	LinkedList(const LinkedList &list) {
+		void *mem = this->allocator->Allocate(sizeof(ListNode));
+		this->tail = new (mem) ListNode();
+		this->tail->prev = this->tail->next = NULL;
+		this->head = this->tail;
+		for (ListNode *p = list.head; p != list.tail; p = p->next)
+			this->append(p->data);
+	}
 	~LinkedList() {
 		this->clear();
 		this->tail->~ListNode();
@@ -102,22 +117,33 @@ struct LinkedList {
 	const size_t size() const {
 		return n_nodes;
 	}
+	void reset() {
+		this->clear();
+		this->tail->~ListNode();
+		this->allocator->Free(this->tail, sizeof(ListNode));
+		void *mem = this->allocator->Allocate(sizeof(ListNode));
+		this->tail = new (mem) ListNode();
+		this->tail->prev = this->tail->next = NULL;
+		this->head = this->tail;
+	}
 	void clear() {
-		for (ListNode *p = this->head; p != this->tail; ++p) {
+		for (ListNode *p = this->head; p != this->tail; p = p->next) {
 			p->~ListNode();
 			this->allocator->Free(p, sizeof(ListNode));
 		}
 		this->head = this->tail;
 		this->tail->prev = this->tail->next = NULL;
 	}
-	// Append data after node x
+	// Append data before node x
 	ListNode *append(ListNode *x, const T &data) {
 		void *mem = this->allocator->Allocate(sizeof(ListNode));
 		ListNode *q = new (mem) ListNode(data);
-		q->next = x->next;
-		if (q->next != NULL)
-			q->next->prev = q;
-		q->prev = x, x->next = q;
+		q->next = x;
+		if (x->prev != NULL)
+			x->prev->next = q;
+		q->prev = x->prev, x->prev = q;
+		if (this->head == x)
+			this->head = q;
 		++this->n_nodes;
 		return q;
 	}
@@ -129,6 +155,8 @@ struct LinkedList {
 		if (this->tail->prev != NULL)
 			this->tail->prev->next = q;
 		q->prev = this->tail->prev, this->tail->prev = q;
+		if (this->head == this->tail)
+			this->head = q;
 		++this->n_nodes;
 		return q;
 	}
@@ -136,6 +164,7 @@ struct LinkedList {
 	void remove(ListNode *q) {
 		if (q->prev) q->prev->next = q->next;
 		if (q->next) q->next->prev = q->prev;
+		if (this->head == q) this->head = this->head->next;
 		q->~ListNode();
 		this->allocator->Free(q, sizeof(ListNode));
 		--this->n_nodes;
@@ -195,35 +224,36 @@ class RBNet {
 
 	std::vector<Point> point;
 	std::vector<std::pair<ID, ID>> net;
-	std::vector<std::vector<ID>> link;
+	std::vector<std::vector<std::pair<ID, ID>>> link;
 	double m_width, m_height;
 
 public:
 	RBNet() {}
 	RBNet(double _w, double _h, const std::vector<Point> &vec)
 			: m_width(_w), m_height(_h), point(vec),
-			  link(vec.size(), std::vector<ID>()) {}
+			  link(vec.size(), std::vector<std::pair<ID, ID>>()) {}
 	ID add_point(const Point &p) {
 		point.push_back(p);
-		link.push_back(std::vector<ID>());
+		link.push_back(std::vector<std::pair<ID, ID>>());
 		return static_cast<ID>(point.size()) - 1;
 	}
 	void add_net(ID id1, ID id2) {
+		ID net_id = this->n_nets();
 		ensure(id1 < this->n_points() && id2 < this->n_points(),
 			   "Invalid net: ID incorrect");
 		ensure(id1 != id2, "Invalid net: id1 == id2");
 		net.emplace_back(id1, id2);
-		link[id1].push_back(id2);
-		link[id2].push_back(id1);
+		link[id1].push_back(std::make_pair(id2, net_id));
+		link[id2].push_back(std::make_pair(id1, net_id));
 	}
 
 	size_t n_points() const { return this->point.size(); }
 	size_t n_nets() const { return this->net.size(); }
-	const std::vector<ID> &links_from(ID x) const {
+	const std::vector<std::pair<ID, ID>> &links_from(ID x) const {
 		ensure(x < this->n_points(), "ID incorrect");
 		return this->link[x];
 	}
-	std::vector<ID> &links_from(ID x) {
+	std::vector<std::pair<ID, ID>> &links_from(ID x) {
 		ensure(x < this->n_points(), "ID incorrect");
 		return this->link[x];
 	}
@@ -234,6 +264,8 @@ public:
 
 	// Create component from given IDs
 	RBNet subnet(std::vector<ID> vec) const;
+	// Combine another net into this net
+	void combine(const RBNet &b);
 };
 
 #endif //RBROUTER_RBMATH_H
