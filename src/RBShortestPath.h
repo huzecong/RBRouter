@@ -11,7 +11,6 @@
 #include "RBBase.h"
 
 class RBShortestPath {
-	typedef unsigned int ID;
 	typedef std::pair<ID, double> Edge;
 
 	unsigned int n_vertex, n_edges;

@@ -23,9 +23,9 @@ double RBRouter::solve() {
 	return result;
 }
 
-pair<double, RoutingPlan *> RBRouter::solve_with_plan() {
+pair<double, RBRoutingPlan *> RBRouter::solve_with_plan() {
 	// Unimplemented, leave here
-	return pair<double, RoutingPlan *>();
+	return pair<double, RBRoutingPlan *>();
 }
 
 vector<unsigned int> RBRouter::find_order(const RBNet &net) {

@@ -6,9 +6,14 @@
 #define RBROUTER_RBMATH_H
 
 
+#include <climits>
+#include <cmath>
 #include <cstdio>
+#include <functional>
 #include <vector>
 #include "Box2D/b2BlockAllocator.h"
+
+typedef unsigned int ID;
 
 void ensure(const bool cond, const char *msg) {
 	if (!cond) perror(msg);
@@ -19,6 +24,32 @@ struct Point {
 	Point() {}
 	Point(double _x, double _y) : x(_x), y(_y) {}
 };
+
+inline double sqr(double x) {
+	return x * x;
+}
+
+inline double dist(const Point &a, const Point &b) {
+	return sqrt(sqr(a.x - b.x) + sqr(a.y - b.y));
+}
+
+inline double angle(const Point &a, const Point &b) {
+	return atan2(b.y - a.y, b.x - a.x);
+}
+
+const double eps = 1e-8;
+
+inline bool equal(const double a, const double b) {
+	return fabs(a - b) < eps;
+}
+
+inline bool less(const double a, const double b) {
+	return b > a + eps;
+}
+
+inline bool greater(const double a, const double b) {
+	return a > b + eps;
+}
 
 struct Segment {
 	Point s, e;
@@ -36,7 +67,7 @@ struct LinkedList {
 		ListNode() {}
 		ListNode(const T &_data) : data(_data) {}
 	} *head, *tail;
-	int n_nodes;
+	size_t n_nodes;
 	LinkedList() {
 		if (this->allocator == NULL) {
 			this->allocator = new b2BlockAllocator();
@@ -47,6 +78,9 @@ struct LinkedList {
 		this->tail->prev = this->tail->next = NULL;
 		this->head = this->tail;
 	}
+	const size_t size() const {
+		return n_nodes;
+	}
 	// Append data after node x
 	ListNode *append(ListNode *x, const T &data) {
 		void *mem = this->allocator->Allocate(sizeof(ListNode));
@@ -55,7 +89,18 @@ struct LinkedList {
 		if (q->next != NULL)
 			q->next->prev = q;
 		q->prev = x, x->next = q;
-		++n_nodes;
+		++this->n_nodes;
+		return q;
+	}
+	// Append data at end of queue
+	ListNode *append(const T &data) {
+		void *mem = this->allocator->Allocate(sizeof(ListNode));
+		ListNode *q = new (mem) ListNode(data);
+		q->next = this->tail;
+		if (this->tail->prev != NULL)
+			this->tail->prev->next = q;
+		q->prev = this->tail->prev, this->tail->prev = q;
+		++this->n_nodes;
 		return q;
 	}
 	// Remove node x
@@ -64,53 +109,60 @@ struct LinkedList {
 		if (q->next) q->next->prev = q->prev;
 		q->~ListNode();
 		this->allocator->Free(q, sizeof(ListNode));
-		--n_nodes;
+		--this->n_nodes;
+	}
+	// Remove given node, returns true on success
+	bool remove(const T &x) {
+		for (ListNode *p = this->head; p != this->tail; ++p)
+			if (p->data == x) {
+				this->remove(p);
+				return true;
+			}
+		return false;
+	}
+	// Return first node
+	const ListNode *front() const {
+		return this->head;
 	}
 	// Locate internal node using user-provided function
-	ListNode *find_if(bool (*func)(const T &)) {
+	virtual ListNode *find_if(const std::function<bool(const T &)> &func) {
 		for (ListNode *p = this->head; p != this->tail; ++p)
 			if (func(p->data)) return p;
 		return NULL;
 	}
+	// Find internal node which minimizes function
+	virtual ListNode *find_minimum(const std::function<double(const T &)>
+								   &func) {
+		double min_val = DBL_MAX;
+		ListNode *ret_node = NULL;
+		for (ListNode *p = this->head; p != this->tail; ++p) {
+			double cur = func(p->data);
+			if (cur < min_val) {
+				min_val = cur;
+				ret_node = p;
+			}
+		}
+		return ret_node;
+	}
 	// Map function on every node
-	void map(void (*func)(T &)) {
+	virtual void map(const std::function<void(T &)> &func) {
 		for (ListNode *p = this->head; p != this->tail; ++p)
 			func(p->data);
 	}
 };
 
 template<typename T>
-struct CyclicLinkedList : public LinkedList<T> {
-	typedef typename LinkedList<T>::ListNode ListNode;
-
-	CyclicLinkedList() : LinkedList<T>() {
-		this->head->prev = this->head->next = this->head;
-	}
-	// Locate internal node using user-provided function
-	ListNode *find_if(bool (*func)(const T &)) {
-		for (ListNode *p = this->head; p != this->tail; ++p)
-			if (func(p->data)) return p;
-		if (func(this->tail)) return this->tail;
-		return NULL;
-	}
-	// Map function on every node
-	void map(void (*func)(T &)) {
-		for (ListNode *p = this->head; p != this->tail; ++p)
-			func(p->data);
-		func(this->tail);
-	}
-};
+b2BlockAllocator *LinkedList<T>::allocator;
 
 
-class RoutingPlan {
-
+struct RBRoutingPlan {
+	std::vector<std::vector<ID>> path;
+	double length;
 };
 
 class RBNet {
-public:
-	typedef unsigned int ID;
+	friend class RBSequentialEmbedding;
 
-private:
 	std::vector<Point> point;
 	std::vector<std::pair<ID, ID>> net;
 	std::vector<std::vector<ID>> link;
@@ -118,7 +170,7 @@ private:
 
 public:
 	RBNet() {}
-	RBNet(double _w, double _h, const std::__1::vector<Point> &vec)
+	RBNet(double _w, double _h, const std::vector<Point> &vec)
 			: m_width(_w), m_height(_h), point(vec),
 			  link(vec.size(), std::vector<ID>()) {}
 	ID add_point(const Point &p) {
