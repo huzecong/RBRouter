@@ -6,6 +6,7 @@
 #define RBROUTER_RBROUTER_H
 
 
+#include <string>
 #include <vector>
 #include <utility>
 #include "RBSequentialEmbedding.h"
@@ -15,6 +16,8 @@ class RBRouter {
 	RBNet net;
 
 	std::vector<unsigned int> find_order(const RBNet &);
+
+	RBRoutingPlan plan;
 
 public:
 	RBRouter() : net() {}
@@ -35,7 +38,11 @@ public:
 	const double &height() const { return net.height(); }
 
 	double solve();
-	std::pair<double, RBRoutingPlan *> solve_with_plan();
+	const RBRoutingPlan &routing_plan() const {
+		return plan;
+	}
+
+	void plot(std::string) const;
 };
 
 

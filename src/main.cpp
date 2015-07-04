@@ -15,8 +15,11 @@ int main() {
 	router.insert_net(2, 3);
 	router.insert_net(4, 5);
 
+	debug("Before router.solve()");
 	double ans = router.solve();
 	cout << ans << endl;
+
+	router.plot("out.ps");
 
 	return 0;
 }

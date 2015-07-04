@@ -15,9 +15,21 @@
 
 typedef unsigned int ID;
 
-void ensure(const bool cond, const char *msg) {
-	if (!cond) perror(msg);
-}
+#define __RB_HAS_ENSURE 1
+#define __RB_DEBUG 1
+
+#if __RB_DEBUG
+#include <iostream>
+#define debug(x) std::cerr << x << std::endl
+#else
+#define debug(x) ;
+#endif
+
+#if __RB_HAS_ENSURE
+#define ensure(cond, msg) { if (!(cond)) perror(msg); }
+#else
+#define ensure(cond, msg) ;
+#endif
 
 struct Point {
 	double x, y;
@@ -58,10 +70,6 @@ inline double cross_product(const Point &o, const Point &a, const Point &b) {
 inline bool colinear(const Point &a, const Point &b, const Point &c) {
 	return equal(cross_product(a, b, c), 0.0);
 }
-
-struct Segment {
-	Point s, e;
-};
 
 
 template<typename T>
@@ -134,7 +142,7 @@ struct LinkedList {
 	}
 	// Remove given node, returns true on success
 	bool remove(const T &x) {
-		for (ListNode *p = this->head; p != this->tail; ++p)
+		for (ListNode *p = this->head; p != this->tail; p = p->next)
 			if (p->data == x) {
 				this->remove(p);
 				return true;
@@ -147,7 +155,7 @@ struct LinkedList {
 	}
 	// Locate internal node using user-provided function
 	virtual ListNode *find_if(const std::function<bool(const T &)> &func) {
-		for (ListNode *p = this->head; p != this->tail; ++p)
+		for (ListNode *p = this->head; p != this->tail; p = p->next)
 			if (func(p->data)) return p;
 		return NULL;
 	}
@@ -156,7 +164,7 @@ struct LinkedList {
 								   &func) {
 		double min_val = DBL_MAX;
 		ListNode *ret_node = NULL;
-		for (ListNode *p = this->head; p != this->tail; ++p) {
+		for (ListNode *p = this->head; p != this->tail; p = p->next) {
 			double cur = func(p->data);
 			if (cur < min_val) {
 				min_val = cur;
@@ -167,7 +175,7 @@ struct LinkedList {
 	}
 	// Map function on every node
 	virtual void map(const std::function<void(T &)> &func) {
-		for (ListNode *p = this->head; p != this->tail; ++p)
+		for (ListNode *p = this->head; p != this->tail; p = p->next)
 			func(p->data);
 	}
 };
@@ -183,6 +191,7 @@ struct RBRoutingPlan {
 
 class RBNet {
 	friend class RBSequentialEmbedding;
+	friend class RBRouter;
 
 	std::vector<Point> point;
 	std::vector<std::pair<ID, ID>> net;

@@ -135,7 +135,13 @@ public:
 
 	void roar(const Point_Iterator &it);
 
-	double length();
+	const double length() const {
+		return plan.length;
+	}
+
+	const RBRoutingPlan &routing_plan() const {
+		return plan;
+	}
 };
 
 
