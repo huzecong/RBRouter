@@ -34,6 +34,7 @@ struct RBSEIncidentNet : public RBSENet {
 };
 
 struct RBSEPort {
+	static RBSEPort PortNotFound;
 	double start_angle, end_angle;
 	RBSEPort() {}
 	RBSEPort(double s, double e) : start_angle(s), end_angle(e) {}
@@ -41,6 +42,10 @@ struct RBSEPort {
 		return equal(this->start_angle, p.start_angle)
 			   && equal(this->end_angle, p.end_angle);
 	}
+	bool contains_eq(double angle) const;
+	bool contains(double angle) const;
+	bool contains(const RBSEPort &other) const;
+	double length() const;
 };
 
 struct RBSERegion {
@@ -91,11 +96,12 @@ struct RBSERegion {
 struct RBSEVertex {
 	static b2BlockAllocator *allocator;
 
+	ID id;
 	Point point;
 	LinkedList<RBSEAttachedNet *> attached_list;
 	LinkedList<RBSEAttachedNet *> incident_list;
 	LinkedList<RBSERegion *> region_list;
-	LinkedList<RBSERegion *> open_region;
+	LinkedList<std::pair<RBSERegion *, ID>> open_region;
 
 	void *operator new(size_t) throw(std::bad_alloc) {
 		return allocator->Allocate(sizeof(RBSEVertex));

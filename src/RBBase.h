@@ -43,12 +43,20 @@ inline bool equal(const double a, const double b) {
 	return fabs(a - b) < eps;
 }
 
-inline bool less(const double a, const double b) {
+inline bool lt(const double a, const double b) {
 	return b > a + eps;
 }
 
-inline bool greater(const double a, const double b) {
+inline bool gt(const double a, const double b) {
 	return a > b + eps;
+}
+
+inline double cross_product(const Point &o, const Point &a, const Point &b) {
+	return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+inline bool colinear(const Point &a, const Point &b, const Point &c) {
+	return equal(cross_product(a, b, c), 0.0);
 }
 
 struct Segment {
@@ -78,8 +86,21 @@ struct LinkedList {
 		this->tail->prev = this->tail->next = NULL;
 		this->head = this->tail;
 	}
+	~LinkedList() {
+		this->clear();
+		this->tail->~ListNode();
+		this->allocator->Free(this->tail, sizeof(ListNode));
+	}
 	const size_t size() const {
 		return n_nodes;
+	}
+	void clear() {
+		for (ListNode *p = this->head; p != this->tail; ++p) {
+			p->~ListNode();
+			this->allocator->Free(p, sizeof(ListNode));
+		}
+		this->head = this->tail;
+		this->tail->prev = this->tail->next = NULL;
 	}
 	// Append data after node x
 	ListNode *append(ListNode *x, const T &data) {
