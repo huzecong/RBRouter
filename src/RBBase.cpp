@@ -19,7 +19,7 @@ RBNet RBNet::subnet(vector<ID> vec) const {
 	RBNet result(this->width(), this->height(), sub_point);
 	for (unsigned int i = 0; i < vec.size(); ++i)
 		for (pair<ID, ID> j : this->link[vec[i]]) {
-			map<ID, ID>::iterator it = has_ID.find(j.second);
+			map<ID, ID>::iterator it = has_ID.find(j.first);
 			if (it != has_ID.end() && it->second > i)
 				result.add_net(i, it->second);
 		}

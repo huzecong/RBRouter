@@ -222,6 +222,8 @@ void PSPlot::draw(std::string fileName)
 
 void plot_postscript(string filename, const vector<Point> &point,
                      const RBRoutingPlan &plan) {
+    double size = (plan.height + plan.width) / 2 / 25;
+
     vector<PSLine> lines;
     vector<PSArc> arcs;
     PSColor black;
@@ -231,10 +233,10 @@ void plot_postscript(string filename, const vector<Point> &point,
         PSArc arc;
         arc.centerX_ = p.x;
         arc.centerY_ = p.y;
-        arc.radius_ = 0.25;
+        arc.radius_ = size / 4;
         arc.startAngle_ = 0.0;
         arc.endAngle_ = 2 * M_PI;
-        arc.width_ = 0.25;
+        arc.width_ = size / 4;
         arc.color_ = black;
         arcs.push_back(arc);
     }
@@ -250,11 +252,11 @@ void plot_postscript(string filename, const vector<Point> &point,
             Point a = point[vec[i]];
             Point b = point[vec[i + 1]];
             PSLine line;
-            line.x1_ = a.x;
-            line.y1_ = a.y;
-            line.x2_ = b.x;
-            line.y2_ = b.y;
-            line.width_ = 0.5;
+            line.x1_ = a.x + ((float)i / vec.size() * 2 - 1) * size / 3;
+            line.y1_ = a.y + ((float)i / vec.size() * 2 - 1) * size / 3;
+            line.x2_ = b.x + ((float)i / vec.size() * 2 - 1) * size / 3;
+            line.y2_ = b.y + ((float)i / vec.size() * 2 - 1) * size / 3;
+            line.width_ = size / 3;
             line.color_ = color;
             lines.push_back(line);
         }

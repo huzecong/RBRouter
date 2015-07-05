@@ -20,17 +20,19 @@ enum RBSENetType {
 
 struct RBSENet {
 	const RBSENetType type = NullType;
-	ID net_no, from_node;
+	ID net_no;
 	RBSENet *counterpart;
 	double angle;
+	RBSENet() {}
+	RBSENet(RBSENetType _t) : type(_t) {}
 };
 
 struct RBSEAttachedNet : public RBSENet {
-	const RBSENetType type = AttachedNet;
+	RBSEAttachedNet() : RBSENet(AttachedNet) {}
 };
 
 struct RBSEIncidentNet : public RBSENet {
-	const RBSENetType type = IncidentNet;
+	RBSEIncidentNet() : RBSENet(IncidentNet) {}
 };
 
 struct RBSEPort {
@@ -77,7 +79,22 @@ struct RBSERegion {
 	}
 
 	RBSERegion() {
-		if (free_id.size() > 0) {
+//		if (free_id.size() > 0) {
+		if (false) {
+			this->id = free_id[free_id.size() - 1];
+			free_id.pop_back();
+		} else {
+			this->id = id_cnt++;
+			if (regions.size() <= this->id)
+				regions.resize(this->id + 1);
+		}
+		regions[this->id] = this;
+	}
+	RBSERegion(const RBSERegion &region)
+		: port(region.port), net(region.net), link(region.link),
+		  belong_vertex(region.belong_vertex), is_open(region.is_open) {
+//		if (free_id.size() > 0) {
+		if (false) {
 			this->id = free_id[free_id.size() - 1];
 			free_id.pop_back();
 		} else {
@@ -98,8 +115,8 @@ struct RBSEVertex {
 
 	ID id;
 	Point point;
-	LinkedList<RBSEAttachedNet *> attached_list;
-	LinkedList<RBSEAttachedNet *> incident_list;
+//	LinkedList<RBSEAttachedNet *> attached_list;
+//	LinkedList<RBSEAttachedNet *> incident_list;
 	LinkedList<RBSERegion *> region_list;
 	LinkedList<std::pair<RBSERegion *, ID>> open_region;
 

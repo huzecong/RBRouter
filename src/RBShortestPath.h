@@ -30,6 +30,11 @@ public:
 	// Find the shortest path from vertex a to b, and return the vertexes on
 	// the shortest path
 	std::vector<ID> shortest_path(ID a, ID b);
+	void clear() {
+		this->n_edges = this->n_vertex = 0;
+		this->graph.clear();
+		this->terminals.clear();
+	}
 };
 
 

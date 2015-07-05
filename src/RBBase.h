@@ -15,6 +15,9 @@
 
 typedef unsigned int ID;
 
+const double eps = 1e-8;
+const double INFI = 1e20;
+
 #define __RB_HAS_ENSURE 1
 #define __RB_DEBUG 1
 
@@ -49,8 +52,6 @@ inline double angle(const Point &a, const Point &b) {
 	return atan2(b.y - a.y, b.x - a.x);
 }
 
-const double eps = 1e-8;
-
 inline bool equal(const double a, const double b) {
 	return fabs(a - b) < eps;
 }
@@ -69,6 +70,23 @@ inline double cross_product(const Point &o, const Point &a, const Point &b) {
 
 inline bool colinear(const Point &a, const Point &b, const Point &c) {
 	return equal(cross_product(a, b, c), 0.0);
+}
+
+inline bool between(const Point &o, const Point &a, const Point &b) {
+	return std::min(a.x, b.x) <= o.x && std::max(a.x, b.x) >= o.x
+		   && std::min(a.y, b.y) <= o.y && std::max(a.y, b.y) >= o.y;
+}
+
+inline int sign(double x) {
+	return x > eps ? 1 : x < -eps ? -1 : 0;
+}
+
+inline bool intersect_strict(const Point &a, const Point &b,
+							 const Point &s, const Point &t) {
+	if (sign(cross_product(s, a, t)) * sign(cross_product(s, b, t)) < 0
+		&& sign(cross_product(a, s, b)) * sign(cross_product(a, t, b)) < 0) {
+		return true;
+	} else return false;
 }
 
 template<typename T>
@@ -100,12 +118,14 @@ struct LinkedList {
 		this->tail = new (mem) ListNode();
 		this->tail->prev = this->tail->next = NULL;
 		this->head = this->tail;
+		this->n_nodes = 0;
 	}
 	LinkedList(const LinkedList &list) {
 		void *mem = this->allocator->Allocate(sizeof(ListNode));
 		this->tail = new (mem) ListNode();
 		this->tail->prev = this->tail->next = NULL;
 		this->head = this->tail;
+		this->n_nodes = 0;
 		for (ListNode *p = list.head; p != list.tail; p = p->next)
 			this->append(p->data);
 	}
@@ -133,6 +153,7 @@ struct LinkedList {
 		}
 		this->head = this->tail;
 		this->tail->prev = this->tail->next = NULL;
+		this->n_nodes = 0;
 	}
 	// Append data before node x
 	ListNode *append(ListNode *x, const T &data) {
@@ -176,6 +197,7 @@ struct LinkedList {
 				this->remove(p);
 				return true;
 			}
+		assert(false);
 		return false;
 	}
 	// Return first node
@@ -215,7 +237,7 @@ b2BlockAllocator *LinkedList<T>::allocator;
 
 struct RBRoutingPlan {
 	std::vector<std::vector<ID>> path;
-	double length;
+	double length, width, height;
 };
 
 class RBNet {

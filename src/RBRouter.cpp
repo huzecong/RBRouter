@@ -62,25 +62,27 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 		if(!is_linked[i]) {
 			debug("\t\tfind_order: before processing " << i);
 			std::queue<ID> q;
-			std::vector<ID> cpn;
+			std::vector<ID> nodes, edges;
 			q.push(i);
 			is_linked[i] = true;
 			while(!q.empty()) {
 				int y = q.front();
 				q.pop();
+				nodes.push_back(y);
 				const vector<pair<ID, ID>> &lfi = net.links_from(y);
 				for(unsigned ii = 0; ii < lfi.size(); ++ii) {
 					int node = lfi[ii].first;
 					if (is_linked[node]) continue;
 					is_linked[node] = true;
 					q.push(lfi[ii].first);
-					cpn.push_back(lfi[ii].second);
+					edges.push_back(lfi[ii].second);
 				}
 			}
-			cpnID.push_back(cpn);
-			RBNet rb = net.subnet(cpn);
+			cpnID.push_back(edges);
+			RBNet rb = net.subnet(nodes);
 			components.push_back(rb);
 			debug("\t\tfind_order: before embedding " << i);
+			debug("\t\tfind_order: |edges|=" << edges.size() << " |nodes|=" << nodes.size());
 			RBSequentialEmbedding re(rb, sequence(rb.n_nets()));
 			debug("\t\tfind_order: after embedding " << i);
 			lengths.push_back(re.length());

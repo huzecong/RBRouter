@@ -29,8 +29,10 @@ void RBShortestPath::remove_edge(ID x) {
 			debug("\t\t\t\tgraph: remove edge " << t->data.first << " to " << t->data.second << " : " << p->data.second);
 			graph.remove(p);
 			terminals.remove(t);
+			return ;
 		}
 	}
+	assert(false);
 }
 
 std::vector<ID> RBShortestPath::shortest_path(ID a, ID b) {
@@ -91,11 +93,13 @@ std::vector<ID> RBShortestPath::shortest_path(ID a, ID b) {
 		}
 	}
 	if(length[b] == -1) {
-		debug("disconnected!");
+		debug("\t\t\t\tgraph: disconnected!");
 		return ret;
 	}
+	/*
 	for (int i = 0; i < n_vertex; ++i)
 		debug("d[" << i << "] = " << length[i]);
+	 */
 
 	ID ans = b;
 	while(1) {
