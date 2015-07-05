@@ -53,7 +53,9 @@ inline double angle(const Point &a, const Point &b) {
 }
 
 inline bool equal(const double a, const double b) {
-	return fabs(a - b) < eps;
+	if (fabs(a - b) < eps) return true;
+	if (fabs(fabs(a) - M_PI) < eps && fabs(fabs(b) - M_PI) < eps) return true;
+	return false;
 }
 
 inline bool lt(const double a, const double b) {

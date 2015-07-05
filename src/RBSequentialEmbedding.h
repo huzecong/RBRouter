@@ -118,7 +118,7 @@ struct RBSEVertex {
 //	LinkedList<RBSEAttachedNet *> attached_list;
 //	LinkedList<RBSEAttachedNet *> incident_list;
 	LinkedList<RBSERegion *> region_list;
-	LinkedList<std::pair<RBSERegion *, ID>> open_region;
+	LinkedList<RBSERegion *> open_region;
 
 	void *operator new(size_t) throw(std::bad_alloc) {
 		return allocator->Allocate(sizeof(RBSEVertex));
@@ -137,6 +137,8 @@ class RBSequentialEmbedding {
 	RBShortestPath graph;
 
 	RBRoutingPlan plan;
+
+	std::vector<ID> insert_open_edge(RBSEVertex *vertex);
 
 public:
 	RBSequentialEmbedding() {}

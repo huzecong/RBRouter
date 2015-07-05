@@ -77,7 +77,7 @@ std::vector<ID> RBShortestPath::shortest_path(ID a, ID b) {
 		pos = -1;
 		for(int j = 0; j < n_vertex; ++j) {
 			if(used[j]) continue;
-			if(length[j] != -1 && (w == -1 || w > length[j])) {
+			if(length[j] != -1 && (equal(w, -1) || w > length[j])) {
 				pos = j;
 				w = length[j];
 			}
@@ -85,8 +85,8 @@ std::vector<ID> RBShortestPath::shortest_path(ID a, ID b) {
 		if (pos == -1) break;
 		used[pos] = 1;
 		for(int j = 0; j < n_vertex; ++j) {
-			if(j == a || dist[pos][j] == -1 || used[j]) continue;
-			if((length[pos] + dist[pos][j] < length[j]) || (length[j] == -1)) {
+			if(j == a || equal(dist[pos][j], -1) || used[j]) continue;
+			if((length[pos] + dist[pos][j] < length[j]) || equal(length[j], -1)) {
 				length[j] = length[pos] + dist[pos][j];
 				father[j] = pos;
 			}

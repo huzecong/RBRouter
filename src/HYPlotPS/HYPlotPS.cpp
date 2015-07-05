@@ -241,7 +241,8 @@ void plot_postscript(string filename, const vector<Point> &point,
         arcs.push_back(arc);
     }
     srand(time(0));
-    for (const vector<ID> &vec : plan.path) {
+    for (int x = 0; x < plan.path.size(); ++x) {
+        const vector<ID> &vec = plan.path[x];
         PSColor color;
         color.r_ = (float)(rand() % (12 + 1)) / 12;
         color.g_ = (float)(rand() % (12 + 1)) / 12;
@@ -252,10 +253,10 @@ void plot_postscript(string filename, const vector<Point> &point,
             Point a = point[vec[i]];
             Point b = point[vec[i + 1]];
             PSLine line;
-            line.x1_ = a.x + ((float)i / vec.size() * 2 - 1) * size / 3;
-            line.y1_ = a.y + ((float)i / vec.size() * 2 - 1) * size / 3;
-            line.x2_ = b.x + ((float)i / vec.size() * 2 - 1) * size / 3;
-            line.y2_ = b.y + ((float)i / vec.size() * 2 - 1) * size / 3;
+            line.x1_ = a.x + ((float)x / plan.path.size() * 2 - 1) * size / 3;
+            line.y1_ = a.y + ((float)x / plan.path.size() * 2 - 1) * size / 3;
+            line.x2_ = b.x + ((float)x / plan.path.size() * 2 - 1) * size / 3;
+            line.y2_ = b.y + ((float)x / plan.path.size() * 2 - 1) * size / 3;
             line.width_ = size / 3;
             line.color_ = color;
             lines.push_back(line);
