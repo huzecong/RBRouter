@@ -2,6 +2,7 @@
 // Created by Kanari on 15/7/3.
 //
 
+#include <algorithm>
 #include <climits>
 #include <cstdlib>
 #include <ctime>
@@ -103,8 +104,8 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 		Matrix[i] = new double[n];
 		selected[i] = 0;
 		double _s = 0;
-		for(int j = 0; j < n; ++j) {
-			if(i == j) {
+		for (int j = 0; j < n; ++j) {
+			if (i == j) {
 				Matrix[i][j] = 0;
 				continue;
 			}
@@ -138,6 +139,7 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 		}
 		ret[k] = b;
 	}
+	reverse(ret.begin(), ret.end());
 	
 	int counter = 0;
 	for(int i = 0; i < ret.size(); ++i) {
@@ -148,6 +150,14 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 	}
 
 	debug("\tfind_order: matrix");
+#if __RB_DEBUG
+	for (int i = 0; i < n; ++i) {
+		cerr << "\t\t";
+		for (int j = 0; j < n; ++j)
+			cerr << Matrix[i][j] << "\t";
+		cerr << endl;
+	}
+#endif
 
 	delete [] s;
 	delete [] selected;

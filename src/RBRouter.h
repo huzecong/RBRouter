@@ -7,10 +7,10 @@
 
 
 #include <string>
-#include <vector>
 #include <utility>
-#include "RBSequentialEmbedding.h"
+#include <vector>
 #include "RBBase.h"
+#include "RBSequentialEmbedding.h"
 
 class RBRouter {
 	RBNet net;

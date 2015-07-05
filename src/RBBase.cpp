@@ -2,8 +2,9 @@
 // Created by Kanari on 15/7/3.
 //
 
-#include <vector>
+#include <algorithm>
 #include <map>
+#include <vector>
 #include "RBBase.h"
 
 using namespace std;

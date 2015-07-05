@@ -6,9 +6,9 @@
 #define RBROUTER_RBSHORTESTPATH_H
 
 
+#include <algorithm>
 #include <map>
 #include <vector>
-#include <algorithm>
 #include "RBBase.h"
 
 class RBShortestPath {
