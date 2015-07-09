@@ -1,12 +1,12 @@
-#include "HYPlotPS.h"
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
 #include <algorithm>
-#include <cmath>
-#include <map>
 #include <cassert>
+#include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
 #include <limits>
+#include <map>
+#include "HYPlotPS.h"
 
 using namespace std;
 

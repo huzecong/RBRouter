@@ -21,11 +21,12 @@ b2BlockAllocator *RBSEVertex::allocator;
 RBSEPort RBSEPort::PortNotFound(DBL_MAX, DBL_MAX);
 
 inline RBSEPort make_port(double s, double e) {
+//	if (s != e) s -= eps, e += eps;
 	return RBSEPort(s, e);
 }
 
 inline double angle(RBSERegion *a, RBSERegion *b) {
-	return angle(a->belong_vertex->point, b->belong_vertex->point);
+	return angle(a->vertex->point, b->vertex->point);
 }
 
 inline double reverse(double x) {
@@ -56,9 +57,18 @@ bool RBSEPort::contains(double angle) const {
 }
 
 bool RBSEPort::contains(const RBSEPort &other) const {
-	return this->contains(other.start_angle) && this->contains(other.end_angle)
-		   && !((this->start_angle >= this->end_angle)
-				^ (other.start_angle >= other.end_angle));
+	if (!(this->contains(other.start_angle) && this->contains(other.end_angle)))
+		return false;
+	if (other.start_angle < other.end_angle) {
+		if (this->start_angle >= this->end_angle) {
+			if (other.start_angle <= this->start_angle
+					&& other.end_angle > this->end_angle) return false;
+			if (other.start_angle >= this->end_angle
+					&& other.end_angle < this->start_angle) return false;
+		}
+		return true;
+	} else return this->start_angle <= other.start_angle
+				  && other.end_angle <= this->end_angle;
 }
 
 double RBSEPort::length() const {
@@ -124,10 +134,10 @@ void insert_net(LinkedList<RBSENet *> &list, RBSENet *net) {
 
 inline bool intersect(RBSERegion *a, RBSERegion *b,
 					  RBSERegion *s, RBSERegion *t) {
-	return intersect_strict(a->belong_vertex->point,
-							b->belong_vertex->point,
-							s->belong_vertex->point,
-							t->belong_vertex->point);
+	return intersect_strict(a->vertex->point,
+							b->vertex->point,
+							s->vertex->point,
+							t->vertex->point);
 }
 
 vector<ID> RBSequentialEmbedding::insert_open_edge(RBSEVertex *vertex) {
@@ -190,7 +200,7 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 			v->id = i;
 			v->point = net.point[i];
 			RBSERegion *region = new RBSERegion();
-			region->belong_vertex = v;
+			region->vertex = v;
 			if (i == lu) {
 				region->port.append(make_port(-M_PI_2, 0));
 			} else if (i == ld) {
@@ -289,13 +299,14 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 		if (path.size() == 0) {
 			// No path found, embedding failed
 			this->plan.length = INFI;
+			return ;
 		}
 		vector<ID> plan_path;
 		for (int i = 1; i + 1 < path.size(); ++i)
 			path[i] -= net.n_points();
 		for (int i = 1; i + 1 < path.size(); ++i)
 			plan_path.push_back(RBSERegion::regions[path[i]]
-										->belong_vertex->id);
+										->vertex->id);
 		this->plan.path.push_back(plan_path);
 
 		// Split regions along the path
@@ -313,16 +324,16 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 			}
 			if (region->is_open) {
 				/*
-				auto *x = region->belong_vertex->open_region.
+				auto *x = region->vertex->open_region.
 						find_if([region](const pair<RBSERegion *, ID> &data) {
 					return data.first == region;
 				});
 				graph.remove_edge(x->data.second);
-				region->belong_vertex->open_region.remove(x);
+				region->vertex->open_region.remove(x);
 				 */
-				region->belong_vertex->open_region.remove(region);
+				region->vertex->open_region.remove(region);
 			}
-			region->belong_vertex->region_list.remove(region);
+			region->vertex->region_list.remove(region);
 
 			if (i == 1 || i + 2 == path.size()) {
 				// Incident net
@@ -411,39 +422,62 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 				RBSEPort port[2];
 				port[0] = find_port(region->port, net[0]->angle);
 				port[1] = find_port(region->port, net[1]->angle);
+
 				if (port[0] == port[1]) {
-					// Creates an one-port region
-					nr[0] = new RBSERegion();
-					nr[0]->is_open = false;
-					insert_net(nr[0]->net, net[0]);
-					insert_net(nr[0]->net, net[1]);
-					nr[1] = new RBSERegion(*region);
-					insert_net(nr[1]->net, net[0]);
-					insert_net(nr[1]->net, net[1]);
-					nr[1]->port.remove(port[0]);
-					if (port[0].contains(make_port(net[0]->angle,
-												   net[1]->angle))) {
+					if (region->net.size() == 0) {
+						// First net inserted
+						nr[0] = new RBSERegion();
+						nr[0]->is_open = false;
+						insert_net(nr[0]->net, net[0]);
+						insert_net(nr[0]->net, net[1]);
+						nr[1] = new RBSERegion();
+						nr[1]->is_open = true;
+						insert_net(nr[1]->net, net[0]);
+						insert_net(nr[1]->net, net[1]);
+						if (make_port(net[0]->angle,
+									  net[1]->angle).length() > M_PI) {
+							swap(net[0], net[1]);
+						}
+						nr[0]->port.append(make_port(net[1]->angle,
+													 net[0]->angle));
+						nr[1]->port.append(make_port(net[0]->angle,
+													 net[1]->angle));
+					} else {
+						// Creates an one-port region
+						nr[0] = new RBSERegion();
+						nr[0]->is_open = false;
+						insert_net(nr[0]->net, net[0]);
+						insert_net(nr[0]->net, net[1]);
+						nr[1] = new RBSERegion(*region);
+						insert_net(nr[1]->net, net[0]);
+						insert_net(nr[1]->net, net[1]);
+						nr[1]->port.remove(port[0]);
+
+						if (!port[0].contains(make_port(net[0]->angle,
+														net[1]->angle))) {
+							swap(net[0], net[1]);
+						}
+						RBSENet *middle[2];
+						middle[0] = region->net.find_if([&](const RBSENet *x) {
+							return equal(x->angle, port[0].start_angle);
+						})->data;
+						middle[1] = region->net.find_if([&](const RBSENet *x) {
+							return equal(x->angle, port[0].end_angle);
+						})->data;
+//						assert(middle[0]->type == middle[1]->type);
+						if (middle[0]->type == AttachedNet) {
+							swap(nr[0]->is_open, nr[1]->is_open);
+						}
 						nr[0]->port.append(
 								make_port(net[0]->angle, net[1]->angle));
-						if (!equal(port[0].start_angle, net[0]->angle))
-							nr[1]->port.append(
-									make_port(port[0].start_angle,
-											  net[0]->angle));
-						if (!equal(net[1]->angle, port[0].end_angle))
-							nr[1]->port.append(
-									make_port(net[1]->angle,
-											  port[0].end_angle));
-					} else {
+						if (equal(port[0].start_angle, net[0]->angle))
+							net[0]->angle += eps;
 						nr[1]->port.append(
-								make_port(net[1]->angle, net[0]->angle));
-						if (!equal(port[0].start_angle, net[1]->angle))
-							nr[0]->port.append(
-									make_port(port[0].start_angle,
-											  net[1]->angle));
-						if (!equal(net[0]->angle, port[0].end_angle))
-							nr[0]->port.append(
-									make_port(net[0]->angle,
-											  port[0].end_angle));
+								make_port(port[0].start_angle, net[0]->angle));
+						if (equal(net[1]->angle, port[0].end_angle))
+							net[1]->angle -= eps;
+						nr[1]->port.append(
+								make_port(net[1]->angle, port[0].end_angle));
 					}
 				} else {
 					// "Horizontally" split the region into two
@@ -483,7 +517,6 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 						} else {
 							// Separated by two incident nets
 						}
-						/*
 						// or two parts of one attached net
 						if (find_next(region->net, middle[0]->angle)
 							!= middle[1]) {
@@ -540,7 +573,7 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 			for (int _nr = 0; _nr < 2; ++_nr) {
 				RBSERegion *new_region = nr[_nr];
 				if (new_region == NULL) break;
-				new_region->belong_vertex = region->belong_vertex;
+				new_region->vertex = region->vertex;
 				new_region->link.reset();
 				for (auto *p = region->link.head;
 					 p != region->link.tail; p = p->next) {
@@ -548,8 +581,8 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 					double n_angle = angle(new_region, node);
 					RBSEPort port = find_port(new_region->port, n_angle);
 					if (port == RBSEPort::PortNotFound) continue;
-					if (i != 1 && node->belong_vertex ==
-								  RBSERegion::regions[path[i - 1]]->belong_vertex) {
+					if (i != 1 && node->vertex ==
+								  RBSERegion::regions[path[i - 1]]->vertex) {
 						RBSEPort n_port;
 						if (equal(port.start_angle, n_angle)) {
 							n_port = find_port(node->port,
@@ -575,15 +608,15 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 					}
 					ID x = graph.add_edge(net.n_points() + new_region->id,
 										  net.n_points() + node->id,
-										  dist(new_region->belong_vertex->point,
-											   node->belong_vertex->point));
+										  dist(new_region->vertex->point,
+											   node->vertex->point));
 					new_region->link.append(make_pair(node, x));
 					node->link.append(make_pair(new_region, x));
 				}
-				region->belong_vertex->region_list.append(new_region);
+				region->vertex->region_list.append(new_region);
 				if (new_region->is_open) {
-					//ID e = graph.add_edge(region->belong_vertex->id, net.n_points() + new_region->id, eps);
-					region->belong_vertex->
+					//ID e = graph.add_edge(region->vertex->id, net.n_points() + new_region->id, eps);
+					region->vertex->
 							open_region.append(new_region);
 				}
 			}
@@ -621,14 +654,14 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 			delete RBSERegion::regions[path[i]];
 
 		debug("\t\tembed: finished net " << _net);
-
+#if __RB_DEBUG
 		for (auto *region : RBSERegion::regions) {
 			if (region != NULL) {
 				debug("\t\t\tcorrespondence " << region->id << ": vertex " <<\
-					  region->belong_vertex->id);
+					  region->vertex->id);
 			}
 		}
-
+#endif
 	}
 
 	// Compute total length
@@ -639,16 +672,16 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 	}
 	debug("\tembed length: " << this->plan.length);
 	debug("After embedding");
-/*
+
 	static char run_times = 'a' - 1;
 	++run_times;
 	string filename = "run";
 	filename.append(1, run_times);
 	filename += ".ps";
 	plot_postscript(filename, this->net.point, this->plan);
- */
+
 }
 
-void RBSequentialEmbedding::roar(const Point_Iterator &it) {
-
+void RBSequentialEmbedding::roar(ID x) {
+	// Not implemented
 }

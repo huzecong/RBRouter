@@ -6,8 +6,8 @@
 #define RBROUTER_SEQUENTIALEMBEDDING_H
 
 
-#include <vector>
 #include <utility>
+#include <vector>
 #include "RBBase.h"
 #include "RBShortestPath.h"
 #include "Box2D/b2BlockAllocator.h"
@@ -57,7 +57,7 @@ struct RBSERegion {
 	LinkedList<RBSEPort> port;
 	LinkedList<RBSENet *> net;
 	LinkedList<std::pair<RBSERegion *, ID>> link;
-	struct RBSEVertex *belong_vertex;
+	struct RBSEVertex *vertex;
 	bool is_open;
 
 	static ID id_cnt;
@@ -92,7 +92,7 @@ struct RBSERegion {
 	}
 	RBSERegion(const RBSERegion &region)
 		: port(region.port), net(region.net), link(region.link),
-		  belong_vertex(region.belong_vertex), is_open(region.is_open) {
+		  vertex(region.vertex), is_open(region.is_open) {
 //		if (free_id.size() > 0) {
 		if (false) {
 			this->id = free_id[free_id.size() - 1];
@@ -140,19 +140,12 @@ class RBSequentialEmbedding {
 
 	std::vector<ID> insert_open_edge(RBSEVertex *vertex);
 
+	void roar(ID x);
+
 public:
 	RBSequentialEmbedding() {}
 	RBSequentialEmbedding(const RBNet &net,
 						  const std::vector<unsigned int> &seq);
-
-	Point_Iterator point_iterator_begin() {
-		return vertex.begin();
-	}
-	Point_Iterator point_iterator_end() {
-		return vertex.end();
-	}
-
-	void roar(const Point_Iterator &it);
 
 	const double length() const {
 		return plan.length;

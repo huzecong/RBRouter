@@ -2,9 +2,9 @@
 // Created by Kanari on 15/7/3.
 //
 
-#include "RBShortestPath.h"
 #include <cstdio>
 #include <utility>
+#include "RBShortestPath.h"
 
 using namespace std;
 

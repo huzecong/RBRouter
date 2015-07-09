@@ -73,11 +73,13 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 				const vector<pair<ID, ID>> &lfi = net.links_from(y);
 				for(unsigned ii = 0; ii < lfi.size(); ++ii) {
 					int node = lfi[ii].first;
+					if (node < y) edges.push_back(lfi[ii].second);
 					if (is_linked[node]) continue;
 					is_linked[node] = true;
 					q.push(lfi[ii].first);
-					edges.push_back(lfi[ii].second);
+					debug("\t\t\t" << y << "--" << lfi[ii].first << ": " << lfi[ii].second);
 				}
+
 			}
 			cpnID.push_back(edges);
 			RBNet rb = net.subnet(nodes);

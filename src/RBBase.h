@@ -34,23 +34,6 @@ const double INFI = 1e20;
 #define ensure(cond, msg) ;
 #endif
 
-struct Point {
-	double x, y;
-	Point() {}
-	Point(double _x, double _y) : x(_x), y(_y) {}
-};
-
-inline double sqr(double x) {
-	return x * x;
-}
-
-inline double dist(const Point &a, const Point &b) {
-	return sqrt(sqr(a.x - b.x) + sqr(a.y - b.y));
-}
-
-inline double angle(const Point &a, const Point &b) {
-	return atan2(b.y - a.y, b.x - a.x);
-}
 
 inline bool equal(const double a, const double b) {
 	if (fabs(a - b) < eps) return true;
@@ -64,6 +47,27 @@ inline bool lt(const double a, const double b) {
 
 inline bool gt(const double a, const double b) {
 	return a > b + eps;
+}
+
+struct Point {
+	double x, y;
+	Point() {}
+	Point(double _x, double _y) : x(_x), y(_y) {}
+	inline bool operator ==(const Point &p) const {
+		return equal(x, p.x) && equal(y, p.y);
+	}
+};
+
+inline double sqr(double x) {
+	return x * x;
+}
+
+inline double dist(const Point &a, const Point &b) {
+	return sqrt(sqr(a.x - b.x) + sqr(a.y - b.y));
+}
+
+inline double angle(const Point &a, const Point &b) {
+	return atan2(b.y - a.y, b.x - a.x);
 }
 
 inline double cross_product(const Point &o, const Point &a, const Point &b) {
@@ -130,6 +134,11 @@ struct LinkedList {
 		this->n_nodes = 0;
 		for (ListNode *p = list.head; p != list.tail; p = p->next)
 			this->append(p->data);
+	}
+	// TODO: Optimize this method
+	LinkedList(const T *arr, size_t n) : LinkedList() {
+		for (int i = 0; i < n; ++i)
+			this->append(arr[i]);
 	}
 	~LinkedList() {
 		this->clear();
@@ -267,8 +276,8 @@ public:
 			   "Invalid net: ID incorrect");
 		ensure(id1 != id2, "Invalid net: id1 == id2");
 		net.emplace_back(id1, id2);
-		link[id1].push_back(std::make_pair(id2, net_id));
-		link[id2].push_back(std::make_pair(id1, net_id));
+		link[id1].emplace_back(id2, net_id);
+		link[id2].emplace_back(id1, net_id);
 	}
 
 	size_t n_points() const { return this->point.size(); }
