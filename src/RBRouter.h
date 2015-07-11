@@ -13,9 +13,11 @@
 #include "RBSequentialEmbedding.h"
 
 class RBRouter {
+public:
 	RBNet net;
 
 	std::vector<unsigned int> find_order(const RBNet &);
+	std::vector<unsigned int> PEO(const RBNet &, const std::vector<unsigned int> &);
 
 	RBRoutingPlan plan;
 

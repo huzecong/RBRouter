@@ -103,16 +103,30 @@ int main(int argc, char *argv[]) {
 	router.insert_net(5, 6);
 */
 /*
-	vector<Point> vec = {{20, 60}, {44.97, 77.34}, {46.91, 21.74},
-						 {75.68, 60.47}, {83.97, 79}, {72.08, 116.9}};
-	RBRouter router(100.0, 140.0, vec);
+	vector<Point> vec = {{20, 40}, {44.97, 57.34}, {46.91, 0.0},
+						 {75.68, 40.47}, {83.97, 59}, {72.08, 96.9}};
+	RBRouter router(83.97, 96.9, vec);
 	router.insert_net(1, 2);
 	router.insert_net(3, 5);
 	router.insert_net(0, 4);
 	router.insert_net(1, 3);
 */
-
-	const int N = 7;
+/*	RBSequentialEmbedding embedding(router.net, {0, 1, 2, 3});
+	router.plan = embedding.routing_plan();
+	router.plot("answer.ps");
+*/
+	vector<Point> vec = {{42.7478, 37.0856}, {21.7201, 10.5097}, {47.0751, 24.4564}, {22.8136, 11.9595}, {30.1576, 13.1269}};
+	RBRouter router(50.0, 50.0, vec);
+	router.insert_net(2, 4);
+	router.insert_net(2, 4);
+	router.insert_net(0, 2);
+//	router.insert_net(0, 2);
+	router.insert_net(4, 3);
+	router.insert_net(4, 3);
+	router.insert_net(2, 3);
+//	router.insert_net(2, 3);
+/*
+	const int N = 5;
 	const double M = 50.0;
 	vector<Point> vec = random_points(N, M);
 	for (const Point &p : vec)
@@ -126,7 +140,7 @@ int main(int argc, char *argv[]) {
 		router.insert_net(a, b);
 		debug(a << " " << b);
 	}
-
+*/
 	debug("Before router.solve()");
 	double ans = router.solve();
 	cout << ans << endl;

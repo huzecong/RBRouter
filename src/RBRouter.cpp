@@ -17,16 +17,26 @@ using namespace std;
 double RBRouter::solve() {
 
 	// Net ordering
-	vector<unsigned int> seq = this->find_order(net);
+	vector<unsigned int> _seq = this->find_order(net);
 	debug("Finished ordering");
+#if __RB_DEBUG
+	debug("Sequence before PEO:");
+	print(_seq);
+#endif
+	// Planarity enforcement operator
+	vector<unsigned int> seq = this->PEO(net, _seq);
+#if __RB_DEBUG
+	debug("Sequence after PEO:");
+	print(seq);
+#endif
 	// Sequential net embedding
 	RBSequentialEmbedding embedding(net, seq);
 	debug("Finished embedding");
 
-	#if __RB_DEBUG
+#if __RB_DEBUG
 	debug("Sequence:");
 	print(seq);
-	#endif
+#endif
 
 	double result = embedding.length();
 	this->plan = embedding.routing_plan();
@@ -86,7 +96,8 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 			components.push_back(rb);
 			debug("\t\tfind_order: before embedding " << i);
 			debug("\t\tfind_order: |edges|=" << edges.size() << " |nodes|=" << nodes.size());
-			RBSequentialEmbedding re(rb, sequence(rb.n_nets()));
+			vector<unsigned int> seq = this->PEO(rb, sequence(rb.n_nets()));
+			RBSequentialEmbedding re(rb, seq);
 			debug("\t\tfind_order: after embedding " << i);
 			lengths.push_back(re.length());
 		}
@@ -114,8 +125,10 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 
 			RBNet _net = components[i];
 			_net.combine(components[j]);
+
+			vector<unsigned int> seq = this->PEO(_net, sequence(_net.n_nets()));
 			
-			RBSequentialEmbedding aij(_net, sequence(_net.n_nets()));
+			RBSequentialEmbedding aij(_net, seq);
 			Matrix[i][j] = aij.length() - lengths[i] - lengths[j];
 			_s += Matrix[i][j];
 		}
@@ -167,6 +180,40 @@ vector<ID> RBRouter::find_order(const RBNet &net) {
 		delete [] Matrix[i];
 	delete [] Matrix;
 	return seq;
+}
+
+vector<unsigned int> RBRouter::PEO(const RBNet &net, const vector<unsigned int> &seq) {
+	vector<unsigned int> closed, open;
+	RBUnionFind ds(net.n_points() + 4);	// 4 Extra points for edges
+	ID up = net.n_points(), down = up + 1;
+	ID left = down + 1, right = left + 1;
+	for (int i = 0; i < net.n_points(); ++i) {
+		const Point &p = net.point[i];
+		if (equal(p.x, 0.0)) ds.merge(i, left);
+		if (equal(p.x, net.width())) ds.merge(i, right);
+		if (equal(p.y, 0.0)) ds.merge(i, down);
+		if (equal(p.y, net.height())) ds.merge(i, up);
+	}
+	for (unsigned int x : seq) {
+		ID a = net.net[x].first, b = net.net[x].second;
+		bool close = false;
+		for (int i = 0; i < 2; ++i) {
+			if (ds.connected(a, up) && ds.connected(b, down)) close = true;
+			if (ds.connected(a, up) && ds.connected(b, left)) close = true;
+			if (ds.connected(a, up) && ds.connected(b, right)) close = true;
+			if (ds.connected(a, down) && ds.connected(b, left)) close = true;
+			if (ds.connected(a, down) && ds.connected(b, right)) close = true;
+			if (ds.connected(a, left) && ds.connected(b, right)) close = true;
+			swap(a, b);
+		}
+		if (close) closed.push_back(x);
+		else {
+			open.push_back(x);
+			ds.merge(a, b);
+		}
+	}
+	open.insert(open.end(), closed.begin(), closed.end());
+	return open;
 }
 
 void RBRouter::plot(string filename) const {

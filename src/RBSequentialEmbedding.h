@@ -21,10 +21,12 @@ enum RBSENetType {
 struct RBSENet {
 	const RBSENetType type = NullType;
 	ID net_no;
-	RBSENet *counterpart;
-	double angle;
+	RBSENet *counterpart, *opposite;
+	struct RBSEVertex *from_vertex, *to_vertex;
 	RBSENet() {}
-	RBSENet(RBSENetType _t) : type(_t) {}
+	RBSENet(RBSENetType _t) : type(_t) {
+		this->counterpart = this->opposite = NULL;
+	}
 };
 
 struct RBSEAttachedNet : public RBSENet {
@@ -36,29 +38,21 @@ struct RBSEIncidentNet : public RBSENet {
 };
 
 struct RBSEPort {
-	static RBSEPort PortNotFound;
-	double start_angle, end_angle;
+	Point s, e;
 	RBSEPort() {}
-	RBSEPort(double s, double e) : start_angle(s), end_angle(e) {}
-	inline bool operator ==(const RBSEPort &p) const {
-		return equal(this->start_angle, p.start_angle)
-			   && equal(this->end_angle, p.end_angle);
-	}
-	bool contains_eq(double angle) const;
-	bool contains(double angle) const;
-	bool contains(const RBSEPort &other) const;
-	double length() const;
+	RBSEPort(const Point &_s, const Point &_e) : s(_s), e(_e) {}
+	bool contains_eq(const Point &p) const;
+	bool contains(const Point &p) const;
 };
 
 struct RBSERegion {
 	static b2BlockAllocator *allocator;
 
 	ID id;
-	LinkedList<RBSEPort> port;
-	LinkedList<RBSENet *> net;
+	RBSEAttachedNet *outer_net[2], *inner_net[2];
+	RBSEIncidentNet *incident_net[2];
 	LinkedList<std::pair<RBSERegion *, ID>> link;
 	struct RBSEVertex *vertex;
-	bool is_open;
 
 	static ID id_cnt;
 	static std::vector<RBSERegion *> regions;
@@ -91,9 +85,15 @@ struct RBSERegion {
 		regions[this->id] = this;
 	}
 	RBSERegion(const RBSERegion &region)
-		: port(region.port), net(region.net), link(region.link),
-		  vertex(region.vertex), is_open(region.is_open) {
+		: link(region.link) {
 //		if (free_id.size() > 0) {
+		for (int i = 0; i < 2; ++i) {
+			this->inner_net[i] = region.inner_net[i];
+			this->outer_net[i] = region.outer_net[i];
+			this->incident_net[i] = region.incident_net[i];
+		}
+		this->vertex = region.vertex;
+
 		if (false) {
 			this->id = free_id[free_id.size() - 1];
 			free_id.pop_back();
@@ -115,10 +115,9 @@ struct RBSEVertex {
 
 	ID id;
 	Point point;
-//	LinkedList<RBSEAttachedNet *> attached_list;
-//	LinkedList<RBSEAttachedNet *> incident_list;
+	LinkedList<RBSENet *> attached_list, opposite_list;
+	LinkedList<RBSENet *> net_list;
 	LinkedList<RBSERegion *> region_list;
-	LinkedList<RBSERegion *> open_region;
 
 	void *operator new(size_t) throw(std::bad_alloc) {
 		return allocator->Allocate(sizeof(RBSEVertex));
@@ -128,6 +127,7 @@ struct RBSEVertex {
 		allocator->Free(m, sizeof(RBSEVertex));
 	}
 };
+
 
 class RBSequentialEmbedding {
 	typedef std::vector<RBSEVertex *>::iterator Point_Iterator;
@@ -140,12 +140,14 @@ class RBSequentialEmbedding {
 
 	std::vector<ID> insert_open_edge(RBSEVertex *vertex);
 
+	void preprocess();
 	void roar(ID x);
 
 public:
 	RBSequentialEmbedding() {}
 	RBSequentialEmbedding(const RBNet &net,
 						  const std::vector<unsigned int> &seq);
+	~RBSequentialEmbedding();
 
 	const double length() const {
 		return plan.length;

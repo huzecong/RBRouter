@@ -56,6 +56,9 @@ struct Point {
 	inline bool operator ==(const Point &p) const {
 		return equal(x, p.x) && equal(y, p.y);
 	}
+	inline Point operator -(const Point &p) const {
+		return Point(x - p.x, y - p.y);
+	}
 };
 
 inline double sqr(double x) {
@@ -72,6 +75,10 @@ inline double angle(const Point &a, const Point &b) {
 
 inline double cross_product(const Point &o, const Point &a, const Point &b) {
 	return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+inline double cross_product(const Point &a, const Point &b) {
+	return a.x * b.y - a.y * b.x;
 }
 
 inline bool colinear(const Point &a, const Point &b, const Point &c) {
@@ -215,14 +222,20 @@ struct LinkedList {
 	const ListNode *front() const {
 		return this->head;
 	}
+	ListNode *find(const T &x) {
+		for (ListNode *p = this->head; p != this->tail; p = p->next)
+			if (p->data == x) return p;
+		assert(false);
+		return NULL;
+	}
 	// Locate internal node using user-provided function
-	virtual ListNode *find_if(const std::function<bool(const T &)> &func) {
+	ListNode *find_if(const std::function<bool(const T &)> &func) {
 		for (ListNode *p = this->head; p != this->tail; p = p->next)
 			if (func(p->data)) return p;
 		return NULL;
 	}
 	// Find internal node which minimizes function
-	virtual ListNode *find_minimum(const std::function<double(const T &)>
+	ListNode *find_minimum(const std::function<double(const T &)>
 								   &func) {
 		double min_val = DBL_MAX;
 		ListNode *ret_node = NULL;
@@ -236,7 +249,7 @@ struct LinkedList {
 		return ret_node;
 	}
 	// Map function on every node
-	virtual void map(const std::function<void(T &)> &func) {
+	void map(const std::function<void(T &)> &func) {
 		for (ListNode *p = this->head; p != this->tail; p = p->next)
 			func(p->data);
 	}
@@ -299,6 +312,27 @@ public:
 	RBNet subnet(std::vector<ID> vec) const;
 	// Combine another net into this net
 	void combine(const RBNet &b);
+};
+
+class RBUnionFind {
+	size_t n;
+	unsigned int *f;
+public:
+	RBUnionFind(size_t n) {
+		this->n = n;
+		this->f = new unsigned int[n];
+		for (int i = 0; i < n; ++i)
+			this->f[i] = i;
+	}
+	void merge(ID a, ID b) {
+		this->f[this->find(a)] = this->find(b);
+	}
+	ID find(ID x) {
+		return x == this->f[x] ? x : this->f[x] = this->find(this->f[x]);
+	}
+	bool connected(ID a, ID b) {
+		return this->find(a) == this->find(b);
+	}
 };
 
 #endif //RBROUTER_RBMATH_H
