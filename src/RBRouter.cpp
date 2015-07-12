@@ -16,6 +16,8 @@ using namespace std;
 
 double RBRouter::solve() {
 
+	this->epsilon_shift();
+
 	// Net ordering
 	vector<unsigned int> _seq = this->find_order(net);
 	debug("Finished ordering");
@@ -218,4 +220,35 @@ vector<unsigned int> RBRouter::PEO(const RBNet &net, const vector<unsigned int> 
 
 void RBRouter::plot(string filename) const {
 	plot_postscript(filename, this->net.point, this->plan);
+}
+
+void RBRouter::epsilon_shift() {
+	bool ready = true;
+	int adjust_rounds = 0;
+	do {
+		ready = true;
+		double eps_shift = min(net.width(), net.height());
+		for (int i = 0; i < net.n_points(); ++i)
+			for (int j = i + 1; j < net.n_points(); ++j)
+				eps_shift = min(eps_shift, dist(net.point[i], net.point[j]));
+		eps_shift /= 100.0;
+		for (int i = 0; i < net.n_points(); ++i)
+			for (int j = 0; j < net.n_points(); ++j)
+				for (int k = 0; k < net.n_points(); ++k) {
+					if (i == j || i == k || j == k) continue;
+					if (!between(net.point[k], net.point[i], net.point[j]))
+						continue;
+					if (!colinear(net.point[i], net.point[j], net.point[k]))
+						continue;
+					Point &p = net.point[k];
+					if (equal(p.x, 0.0) || equal(p.x, net.width())
+						|| equal(p.y, 0.0) || equal(p.y, net.width()))
+						continue;
+					ready = false;
+					p.x += eps_shift * (rand() % 3 - 1);
+					p.y += eps_shift * (rand() % 3 - 1);
+				}
+		++adjust_rounds;
+	} while (!ready);
+	debug("eps_shift: " << adjust_rounds << " rounds");
 }

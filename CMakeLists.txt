@@ -44,3 +44,4 @@ set(SOURCE_FILES src/main.cpp src/RBRouter.cpp src/RBSequentialEmbedding.cpp
 src/RBBase.cpp src/RBShortestPath.cpp src/Box2D/b2BlockAllocator.cpp
 src/Box2D/b2TrackedBlock.cpp src/Box2D/b2Settings.cpp src/HYPlotPS/HYPlotPS.cpp)
 add_executable(RBRouter ${SOURCE_FILES})
+add_executable(testcase/gen_test src/gen_test.cpp)

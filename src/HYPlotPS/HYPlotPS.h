@@ -11,6 +11,11 @@ struct PSColor {
     float g_;
     float b_;
     float alpha_;
+    inline bool operator <(const PSColor &color) const {
+        if (r_ != color.r_) return r_ < color.r_;
+        if (g_ != color.g_) return g_ < color.g_;
+        return b_ < color.b_;
+    }
 };
 
 struct PSArc {

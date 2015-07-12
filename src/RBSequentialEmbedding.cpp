@@ -14,11 +14,13 @@
 using namespace std;
 using namespace std::rel_ops;
 
+int RBSequentialEmbedding::alive_cnt;
 ID RBSERegion::id_cnt;
 vector<RBSERegion *> RBSERegion::regions;
 vector<ID> RBSERegion::free_id;
 b2BlockAllocator *RBSERegion::allocator;
 b2BlockAllocator *RBSEVertex::allocator;
+b2BlockAllocator *RBSENet::allocator;
 
 inline RBSEPort make_port(RBSENet *l, RBSENet *r) {
 	RBSEPort ret = RBSEPort(l->to_vertex->point - l->from_vertex->point,
@@ -75,6 +77,23 @@ inline RBSERegionNetSide on_side_of(RBSERegion *region, RBSENet *net) {
 bool same_way(const Point &a, const Point &b) {
 	if (sign(cross_product(a, b)) != 0) return false;
 	return sign(a.x) == sign(b.x) && sign(a.y) == sign(b.y);
+}
+
+Point to_point(RBSENet *net) {
+	return net->to_vertex->point - net->from_vertex->point;
+}
+
+bool same_way(RBSENet *a, RBSENet *b) {
+	return same_way(to_point(a), to_point(b));
+}
+
+bool contains(RBSERegion *region, RBSENet *net) {
+	for (int i = 0; i < 2; ++i) {
+		if (region->incident_net[i] == net) return true;
+		if (region->inner_net[i] == net) return true;
+		if (region->outer_net[i] == net) return true;
+	}
+	return false;
 }
 
 bool RBSEPort::contains_eq(const Point &p) const {
@@ -158,7 +177,7 @@ vector<ID> RBSequentialEmbedding::insert_open_edge(RBSEVertex *vertex) {
 }
 
 
-void RBSequentialEmbedding::preprocess() {
+void RBSequentialEmbedding::initialize() {
 	// Add corner vertex
 	ID lu = net.n_points(), ru = lu + 1, rd = ru + 1, ld = rd + 1;
 	for (unsigned i = 0; i < net.n_points(); ++i) {
@@ -294,17 +313,23 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 		cerr << x << " ";
 	cerr << endl;
 #endif
+
+	++alive_cnt;
+
 	// Initialize
 	net = _net;
 	RBSEVertex::allocator = new b2BlockAllocator();
 	RBSERegion::allocator = new b2BlockAllocator();
+	RBSENet::allocator = new b2BlockAllocator();
 	RBSERegion::init();
 	this->plan.width = net.width();
 	this->plan.height = net.height();
 
-	this->preprocess();
+	this->initialize();
 
 	debug("\tembed: init");
+
+	vector<vector<RBSENet *>> internal_plan;
 
 	// Embed nets one by one
 	for (int _net = 0; _net < net.n_nets(); ++_net) {
@@ -325,12 +350,9 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 			this->plan.length = INFI;
 			return ;
 		}
-		vector<ID> plan_path;
 		for (int i = 1; i + 1 < path.size(); ++i)
 			path[i] -= net.n_points();
-		for (int i = 1; i + 1 < path.size(); ++i)
-			plan_path.push_back(RBSERegion::regions[path[i]]->vertex->id);
-		this->plan.path.push_back(plan_path);
+		print(path);
 
 		// Remove intersecting edges
 		for (auto *region : RBSERegion::regions) {
@@ -409,55 +431,68 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 					// First net inserted
 					nr[0] = new RBSERegion(*region);
 					nr[0]->incident_net[0] = nr[0]->incident_net[1] = net;
+					nr[0]->full = true;
 					insert_net(region->vertex->net_list, net);
-				} else if (region->outer_net[0] == NULL) {
-					// Only incident nets
-					nr[0] = new RBSERegion(*region);
-					nr[0]->incident_net[0] = net;
-					nr[1] = new RBSERegion(*region);
-					nr[1]->incident_net[1] = net;
-					insert_net(region->vertex->net_list,
-							   region->incident_net[1], net);
 				} else {
-					RBSERegionNetSide res = NotAdjacent;
 					Point p = other_region->vertex->point - region->vertex->point;
-					RBSEPort port[2];
-					port[0] = make_port(region->incident_net[0], region->outer_net[0]);
-					port[1] = make_port(region->outer_net[1], region->incident_net[1]);
-					if (region->incident_net[0] == region->incident_net[1]
-						&& same_way(port[0].s, p)) {
-						if (port[0].contains(p)) res = LeftSide;
-						else if (port[1].contains(p)) res = RightSide;
-						else {
-							auto &list = other_region->vertex->net_list;
-							auto *x = list.find(region->incident_net[0]->opposite);
-							decltype(x) next;
-							if (x->next == list.tail) next = list.head;
-							else next = x->next;
-							if (next->data == last_net) res = LeftSide;
-							else res = RightSide;
+					RBSERegionNetSide res = NotAdjacent;
+					if (region->incident_net[0]->to_vertex == region->incident_net[1]->to_vertex
+						&& same_way(to_point(region->incident_net[0]), p)) {
+						auto &list = other_region->vertex->net_list;
+						auto *x = list.find(region->incident_net[0]->opposite);
+						decltype(x) next;
+						if (x->next == list.tail) next = list.head;
+						else next = x->next;
+						if (next->data == last_net) res = LeftSide;
+						else res = RightSide;
+					} else {
+						if (region->outer_net[0] == NULL) {
+							// kate ni sureba ii
+							res = RightSide;
+						} else {
+							RBSEPort port[2];
+							port[0] = make_port(region->incident_net[0], region->outer_net[0]);
+							port[1] = make_port(region->outer_net[1], region->incident_net[1]);
+							if (port[0].contains_eq(p)) res = LeftSide;
+							else if (port[1].contains_eq(p)) res = RightSide;
+							else assert(false);
 						}
-					} else {
-						if (port[0].contains_eq(p)) res = LeftSide;
-						else if (port[1].contains_eq(p)) res = RightSide;
 					}
-
-					if (res == LeftSide) {
+					if (region->outer_net[0] == NULL) {
+						// Only incident nets
 						nr[0] = new RBSERegion(*region);
-						nr[0]->outer_net[0] = nr[0]->outer_net[1] = NULL;
-						nr[0]->incident_net[1] = net;
-						nr[1] = new RBSERegion(*region);
-						nr[1]->incident_net[0] = net;
-						insert_net(region->vertex->net_list,
-								   region->outer_net[0], net);
-					} else {
-						nr[0] = new RBSERegion(*region);
-						nr[0]->outer_net[0] = nr[0]->outer_net[1] = NULL;
 						nr[0]->incident_net[0] = net;
 						nr[1] = new RBSERegion(*region);
 						nr[1]->incident_net[1] = net;
+						// opposite
+						if (res == LeftSide) {
+							nr[1]->full = same_way(region->incident_net[0], net);
+							nr[0]->full = false;
+						} else {
+							nr[0]->full = same_way(region->incident_net[0], net);
+							nr[1]->full = false;
+						}
 						insert_net(region->vertex->net_list,
 								   region->incident_net[1], net);
+					} else {
+						if (res == LeftSide) {
+							nr[0] = new RBSERegion(*region);
+							nr[0]->outer_net[0] = nr[0]->outer_net[1] = NULL;
+							nr[0]->incident_net[1] = net;
+							nr[1] = new RBSERegion(*region);
+							nr[1]->incident_net[0] = net;
+							insert_net(region->vertex->net_list,
+									   region->outer_net[0], net);
+						} else {
+							nr[0] = new RBSERegion(*region);
+							nr[0]->outer_net[0] = nr[0]->outer_net[1] = NULL;
+							nr[0]->incident_net[0] = net;
+							nr[1] = new RBSERegion(*region);
+							nr[1]->incident_net[1] = net;
+							insert_net(region->vertex->net_list,
+									   region->incident_net[1], net);
+						}
+						nr[0]->full = nr[1]->full = false;
 					}
 				}
 			} else {
@@ -483,46 +518,106 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 				other_region[1] = RBSERegion::regions[path[i + 1]];
 				net[0]->to_vertex = other_region[0]->vertex;
 				net[1]->to_vertex = other_region[1]->vertex;
-				int res = sign(cross_product(region->vertex->point,
-											 other_region[0]->vertex->point,
-											 other_region[1]->vertex->point));
-				if (res > 0) {
-					swap(other_region[0], other_region[1]);
-					swap(net[0], net[1]);
-				} else if (res == 0
-						   && other_region[0]->vertex != other_region[1]->vertex) {
-					// not implemented
-					assert(false);
-				}
+
 				nr[0] = new RBSERegion(*region);
 				nr[1] = new RBSERegion(*region);
 				nr[0]->incident_net[0] = nr[0]->incident_net[1] = NULL;
+				int res = sign(cross_product(region->vertex->point,
+											 other_region[0]->vertex->point,
+											 other_region[1]->vertex->point));
+				if (res == 0) {
+					if (other_region[0]->vertex != other_region[1]->vertex) {
+						// not implemented
+//						assert(false);
+					} else {
+						RBSERegionNetSide res = NotAdjacent;
+						RBSERegion *last_region = RBSERegion::regions[path[i - 1]];
+						if (region->outer_net[0] != NULL) {
+							if (contains(last_region, region->outer_net[0])) res = RightSide;
+							else if (contains(last_region, region->outer_net[1])) res = LeftSide;
+							else assert(false);
+						} else {
+							if (last_region->incident_net[0] != NULL) {
+								auto last_res = res;
+								if (last_region->incident_net[0]->to_vertex == region->vertex) res = LeftSide;
+								else if (last_region->incident_net[1]->to_vertex == region->vertex) res = RightSide;
+								assert(last_res == NotAdjacent || last_res == res);
+							}
+							if (last_region->inner_net[0] != NULL) {
+								auto last_res = res;
+								if (last_region->inner_net[0]->to_vertex == region->vertex) res = LeftSide;
+								else if (last_region->inner_net[1]->to_vertex == region->vertex) res = RightSide;
+								assert(last_res == NotAdjacent || last_res == res);
+							}
+							if (last_region->outer_net[0] != NULL) {
+								auto last_res = res;
+								if (last_region->outer_net[0]->to_vertex == region->vertex) res = RightSide;
+								else if (last_region->outer_net[1]->to_vertex == region->vertex) res = LeftSide;
+								assert(last_res == NotAdjacent || last_res == res);
+							}
+							assert(res != NotAdjacent);
+						}
+						if (res == LeftSide) {
+							swap(other_region[0], other_region[1]);
+							swap(net[0], net[1]);
+						}
+					}
+				} else if (res > 0) {
+					swap(other_region[0], other_region[1]);
+					swap(net[0], net[1]);
+				}
 				nr[0]->inner_net[0] = net[0];
 				nr[0]->inner_net[1] = net[1];
 				nr[1]->outer_net[0] = net[0];
 				nr[1]->outer_net[1] = net[1];
-				if (region->outer_net[0] == NULL) {
-					insert_net(region->vertex->attached_list, net[0]);
-					if (region->inner_net[0] != NULL) {
-						insert_net(region->vertex->net_list, region->inner_net[1], net[1]);
+				if (res == 0 && other_region[0]->vertex == other_region[1]->vertex) {
+					nr[0]->full = true;
+					nr[1]->full = false;
+				} else nr[0]->full = nr[1]->full = false;
+				if (region->inner_net[0] == NULL
+					&& region->incident_net[0] == NULL) {
+					if (region->outer_net[0] == NULL) {
+						insert_net(region->vertex->attached_list, net[0]);
+						insert_net(region->vertex->net_list, net[0]);
+						insert_net(region->vertex->net_list, net[1]);
 					} else {
-						insert_net(region->vertex->net_list, region->incident_net[1], net[1]);
+						insert_net(region->vertex->attached_list,
+								   region->outer_net[0], net[0]);
+						insert_net(region->vertex->net_list,
+								   region->outer_net[0], net[0]);
+						insert_net(region->vertex->net_list, net[0], net[1]);
 					}
-					insert_net(region->vertex->net_list, net[1], net[0]);
 				} else {
-					insert_net(region->vertex->attached_list, region->outer_net[0], net[0]);
-					if (region->inner_net[0] != NULL) {
-						insert_net(region->vertex->net_list, region->inner_net[1], net[1]);
+					if (region->outer_net[0] == NULL) {
+						insert_net(region->vertex->attached_list, net[0]);
+						if (region->inner_net[0] != NULL) {
+							insert_net(region->vertex->net_list,
+									   region->inner_net[1], net[1]);
+						} else {
+							insert_net(region->vertex->net_list,
+									   region->incident_net[1], net[1]);
+						}
+						insert_net(region->vertex->net_list, net[1], net[0]);
 					} else {
-						insert_net(region->vertex->net_list, region->incident_net[1], net[1]);
+						insert_net(region->vertex->attached_list,
+								   region->outer_net[0], net[0]);
+						if (region->inner_net[0] != NULL) {
+							insert_net(region->vertex->net_list,
+									   region->inner_net[1], net[1]);
+						} else {
+							insert_net(region->vertex->net_list,
+									   region->incident_net[1], net[1]);
+						}
+						insert_net(region->vertex->net_list,
+								   region->outer_net[0], net[0]);
 					}
-					insert_net(region->vertex->net_list, region->outer_net[0], net[0]);
 				}
 			}
 
 			if (nr[0] != NULL) region->vertex->region_list.append(nr[0]);
 			if (nr[1] != NULL) region->vertex->region_list.append(nr[1]);
 
+			// Validate and add edges for new regions
 			for (int _nr = 0; _nr < 2; ++_nr) {
 				RBSERegion *new_region = nr[_nr];
 				if (new_region == NULL) break;
@@ -533,8 +628,10 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 					double w = dist(region->vertex->point, node->vertex->point);
 					bool valid = false;
 					if (i == 2 && node->id == path[1]) valid = true;
-					if (i == 1 && path.size() == 4 && node->id == path[2]) valid = true;
-					if (i > 1 && i + 2 < path.size() && node->id == path[i + 1]) valid = true;
+					if (i == 1 && path.size() == 4 && node->id == path[2])
+						valid = true;
+					if (i > 1 && i + 2 < path.size() && node->id == path[i + 1])
+						valid = true;
 					if (new_region->outer_net[0] == NULL && new_region->inner_net[0] == NULL) {
 						if (new_region->incident_net[0] == NULL) valid = true;
 						if (new_region->incident_net[0] == new_region->incident_net[1])
@@ -554,19 +651,36 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 							if (port[0].contains(p))
 								valid = true;
 						} else {
-							if (new_region->inner_net[0] == NULL) {
-								port[0] = make_port(new_region->incident_net[0],
+							if (new_region->inner_net[0] == NULL
+								&& new_region->incident_net[0] == NULL) {
+								port[0] = make_port(new_region->outer_net[1],
 													new_region->outer_net[0]);
-								port[1] = make_port(new_region->outer_net[1],
-													new_region->incident_net[1]);
+								if (port[0].contains(p))
+									valid = true;
 							} else {
-								port[0] = make_port(new_region->inner_net[0],
-													new_region->outer_net[0]);
-								port[1] = make_port(new_region->outer_net[1],
-													new_region->inner_net[1]);
+								if (new_region->inner_net[0] == NULL) {
+									port[0] = make_port(new_region->incident_net[0],
+														new_region->outer_net[0]);
+									port[1] = make_port(new_region->outer_net[1],
+														new_region->incident_net[1]);
+								} else {
+									port[0] = make_port(new_region->inner_net[0],
+														new_region->outer_net[0]);
+									port[1] = make_port(new_region->outer_net[1],
+														new_region->inner_net[1]);
+								}
+								if (port[0].contains(p) || port[1].contains(p))
+									valid = true;
 							}
-							if (port[0].contains(p) || port[1].contains(p))
-								valid = true;
+						}
+						if (new_region->full) {
+							if (new_region->incident_net[0] != NULL) {
+								if (!same_way(p, to_point(new_region->incident_net[0])))
+									valid = true;
+							} else if (new_region->inner_net[0] != NULL) {
+								if (!same_way(p, to_point(new_region->inner_net[0])))
+									valid = true;
+							} else assert(false);
 						}
 					}
 					if (!valid) {
@@ -607,12 +721,67 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 			last_nr[1] = nr[1];
 		}
 
-		// Validate and add edges for new regions
+		vector<RBSENet *> net_path;
+		RBSENet *pnet = last_nets[1];
+		net_path.push_back(pnet);
+		for (pnet = pnet->opposite; pnet->type != IncidentNet;
+			 pnet = pnet->opposite) {
+			pnet = pnet->counterpart;
+			net_path.push_back(pnet);
+		}
+		net_path.push_back(pnet);
+		vector<ID> point_path;
+		for (int i = 0; i < net_path.size(); ++i)
+			point_path.push_back(net_path[i]->from_vertex->id);
+		vector<RBRoutingPlan::Side> direction;
+		direction.push_back(RBRoutingPlan::None);
+		if (net_path.size() == 2) {
+			direction.push_back(RBRoutingPlan::None);
+		} else {
+			for (int i = 1; i + 1 < net_path.size(); ++i) {
+				Point a = net.point[point_path[i - 1]];
+				Point b = net.point[point_path[i]];
+				Point c = net.point[point_path[i + 1]];
+				auto dir = RBRoutingPlan::None;
+				if (a == c) {
+					RBSERegion *region = RBSERegion::regions[path[i + 1]];
+					RBSENet *net = NULL;
+					if (region->incident_net[0] != NULL) {
+						net = region->incident_net[0];
+					} else if (region->inner_net[0] != NULL) {
+						net = region->inner_net[0];
+					}
+					if (net == NULL) {
+						dir = direction[direction.size() - 1];
+						if (dir == RBRoutingPlan::None)
+							dir = RBRoutingPlan::RightSide;
+					} else {
+						auto *x = region->vertex->net_list.find(net);
+						decltype(x) next = x->next;
+						if (x->next == region->vertex->net_list.tail)
+							next = region->vertex->net_list.head;
+						if (next->data == net_path[i]->counterpart) {
+							dir = RBRoutingPlan::RightSide;
+						} else {
+							dir = RBRoutingPlan::LeftSide;
+						}
+					}
+				} else {
+					if (cross_product(b, a, c) < 0) dir = RBRoutingPlan::RightSide;
+					else dir = RBRoutingPlan::LeftSide;
+				}
+				direction.push_back(dir);
+			}
+		}
+		internal_plan.push_back(net_path);
+		plan.path.push_back(point_path);
+		plan.direction.push_back(direction);
 
 		for (int i = 1; i + 1 < path.size(); ++i)
 			delete RBSERegion::regions[path[i]];
 
 		debug("\t\tembed: finished net " << _net);
+/*
 #if __RB_DEBUG
 		for (auto *region : RBSERegion::regions) {
 			if (region != NULL) {
@@ -621,14 +790,33 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 			}
 		}
 #endif
+*/
 	}
 
-	// Compute total length
+	// Compute plan
 	this->plan.length = 0.0;
-	for (const vector<ID> &vec : this->plan.path) {
-		for (int i = 0; i + 1 < vec.size(); ++i)
-			this->plan.length += dist(net.point[vec[i]], net.point[vec[i + 1]]);
+	for (auto &path : plan.path) {
+		for (int i = 0; i + 1 < path.size(); ++i)
+			this->plan.length += dist(net.point[path[i]], net.point[path[i + 1]]);
 	}
+	for (auto &vec : internal_plan) {
+		vector<ID> layer;
+		for (int i = 0; i < vec.size(); ++i) {
+			if (i > 0 && i + 1 < vec.size()) {
+				auto &list = vec[i]->from_vertex->attached_list;
+				int cnt = 0;
+				for (auto *x = list.head; x != list.tail; x = x->next) {
+					++cnt;
+					if (x->data == vec[i] || x->data == vec[i]->counterpart) break;
+				}
+				layer.push_back(cnt);
+			} else {
+				layer.push_back(0);
+			}
+		}
+		plan.layer.push_back(layer);
+	}
+
 	debug("\tembed length: " << this->plan.length);
 	debug("After embedding");
 /*
@@ -647,5 +835,10 @@ void RBSequentialEmbedding::roar(ID x) {
 
 
 RBSequentialEmbedding::~RBSequentialEmbedding() {
-
+	--alive_cnt;
+	if (alive_cnt == 0) {
+		delete RBSEVertex::allocator;
+		delete RBSERegion::allocator;
+		delete RBSENet::allocator;
+	}
 }

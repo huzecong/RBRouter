@@ -11,7 +11,7 @@ using namespace std;
 RBShortestPath::RBShortestPath(): n_vertex(0), n_edges(0) {}
 
 ID RBShortestPath::add_edge(ID a, ID b, double w) {
-	debug("\t\t\t\tgraph: add edge " << a << " to " << b << " : " << w);
+//	debug("\t\t\t\tgraph: add edge " << a << " to " << b << " : " << w);
 	Edge e = make_pair(n_edges, w);
 	Terminal t = make_pair(a, b);
 	n_vertex = max(n_vertex, a > b? a + 1: b + 1);
@@ -26,7 +26,7 @@ void RBShortestPath::remove_edge(ID x) {
 	for(LinkedList<Edge>::ListNode *p = graph.head;
 		p != graph.tail; p = p->next, t = t->next) {
 		if((p->data).first == x) {
-			debug("\t\t\t\tgraph: remove edge " << t->data.first << " to " << t->data.second << " : " << p->data.second);
+//			debug("\t\t\t\tgraph: remove edge " << t->data.first << " to " << t->data.second << " : " << p->data.second);
 			graph.remove(p);
 			terminals.remove(t);
 			return ;

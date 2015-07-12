@@ -49,6 +49,12 @@ inline bool gt(const double a, const double b) {
 	return a > b + eps;
 }
 
+inline double rectify(double x) {
+	while (x > M_PI) x -= 2 * M_PI;
+	while (x < -M_PI) x += 2 * M_PI;
+	return x;
+}
+
 struct Point {
 	double x, y;
 	Point() {}
@@ -260,7 +266,15 @@ b2BlockAllocator *LinkedList<T>::allocator;
 
 
 struct RBRoutingPlan {
-	std::vector<std::vector<ID>> path;
+	enum Side : int {
+		LeftSide = -1,
+		None = 0,
+		RightSide = 1
+	};
+	std::vector<std::vector<ID>> path, layer;
+	std::vector<std::vector<Side>> direction;
+	// The side, to the segment connecting current point and next point on
+	// path, that this net is on
 	double length, width, height;
 };
 

@@ -15,11 +15,11 @@
 class RBRouter {
 public:
 	RBNet net;
+	RBRoutingPlan plan;
 
 	std::vector<unsigned int> find_order(const RBNet &);
 	std::vector<unsigned int> PEO(const RBNet &, const std::vector<unsigned int> &);
-
-	RBRoutingPlan plan;
+	void epsilon_shift();
 
 public:
 	RBRouter() : net() {}

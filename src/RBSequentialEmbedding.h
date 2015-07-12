@@ -19,6 +19,16 @@ enum RBSENetType {
 };
 
 struct RBSENet {
+	static b2BlockAllocator *allocator;
+
+	void *operator new(size_t) throw(std::bad_alloc) {
+		return allocator->Allocate(sizeof(RBSENet));
+	}
+
+	void operator delete(void *m) {
+		allocator->Free(m, sizeof(RBSENet));
+	}
+
 	const RBSENetType type = NullType;
 	ID net_no;
 	RBSENet *counterpart, *opposite;
@@ -53,6 +63,7 @@ struct RBSERegion {
 	RBSEIncidentNet *incident_net[2];
 	LinkedList<std::pair<RBSERegion *, ID>> link;
 	struct RBSEVertex *vertex;
+	bool full;
 
 	static ID id_cnt;
 	static std::vector<RBSERegion *> regions;
@@ -73,6 +84,14 @@ struct RBSERegion {
 	}
 
 	RBSERegion() {
+		for (int i = 0; i < 2; ++i) {
+			this->inner_net[i] = NULL;
+			this->outer_net[i] = NULL;
+			this->incident_net[i] = NULL;
+		}
+		this->vertex = NULL;
+		this->full = false;
+
 //		if (free_id.size() > 0) {
 		if (false) {
 			this->id = free_id[free_id.size() - 1];
@@ -86,14 +105,15 @@ struct RBSERegion {
 	}
 	RBSERegion(const RBSERegion &region)
 		: link(region.link) {
-//		if (free_id.size() > 0) {
 		for (int i = 0; i < 2; ++i) {
 			this->inner_net[i] = region.inner_net[i];
 			this->outer_net[i] = region.outer_net[i];
 			this->incident_net[i] = region.incident_net[i];
 		}
 		this->vertex = region.vertex;
+		this->full = region.full;
 
+//		if (free_id.size() > 0) {
 		if (false) {
 			this->id = free_id[free_id.size() - 1];
 			free_id.pop_back();
@@ -130,6 +150,8 @@ struct RBSEVertex {
 
 
 class RBSequentialEmbedding {
+	static int alive_cnt;
+
 	typedef std::vector<RBSEVertex *>::iterator Point_Iterator;
 	RBNet net;
 	std::vector<RBSEVertex *> vertex;
@@ -140,11 +162,11 @@ class RBSequentialEmbedding {
 
 	std::vector<ID> insert_open_edge(RBSEVertex *vertex);
 
-	void preprocess();
+	void initialize();
 	void roar(ID x);
 
 public:
-	RBSequentialEmbedding() {}
+	RBSequentialEmbedding() { ++alive_cnt; }
 	RBSequentialEmbedding(const RBNet &net,
 						  const std::vector<unsigned int> &seq);
 	~RBSequentialEmbedding();
