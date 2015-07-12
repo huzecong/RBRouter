@@ -318,8 +318,11 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 
 	// Initialize
 	net = _net;
+	if (RBSEVertex::allocator != NULL) delete RBSEVertex::allocator;
 	RBSEVertex::allocator = new b2BlockAllocator();
+	if (RBSERegion::allocator != NULL) delete RBSERegion::allocator;
 	RBSERegion::allocator = new b2BlockAllocator();
+	if (RBSENet::allocator != NULL) delete RBSENet::allocator;
 	RBSENet::allocator = new b2BlockAllocator();
 	RBSERegion::init();
 	this->plan.width = net.width();
@@ -533,10 +536,15 @@ RBSequentialEmbedding::RBSequentialEmbedding(const RBNet &_net,
 						RBSERegionNetSide res = NotAdjacent;
 						RBSERegion *last_region = RBSERegion::regions[path[i - 1]];
 						if (region->outer_net[0] != NULL) {
-							if (contains(last_region, region->outer_net[0])) res = RightSide;
-							else if (contains(last_region, region->outer_net[1])) res = LeftSide;
-							else assert(false);
-						} else {
+							/*
+							if (region->outer_net[0]->to_vertex == last_region->vertex) res = RightSide;
+							else if (region->outer_net[1]->to_vertex == last_region->vertex) res = LeftSide;
+							 */
+							if (contains(last_region, region->outer_net[0]->opposite)) res = RightSide;
+							else if (contains(last_region, region->outer_net[1]->opposite)) res = LeftSide;
+//							else assert(false);
+						}
+						if (res == NotAdjacent) {
 							if (last_region->incident_net[0] != NULL) {
 								auto last_res = res;
 								if (last_region->incident_net[0]->to_vertex == region->vertex) res = LeftSide;
@@ -838,7 +846,10 @@ RBSequentialEmbedding::~RBSequentialEmbedding() {
 	--alive_cnt;
 	if (alive_cnt == 0) {
 		delete RBSEVertex::allocator;
+		RBSEVertex::allocator = NULL;
 		delete RBSERegion::allocator;
+		RBSERegion::allocator = NULL;
 		delete RBSENet::allocator;
+		RBSENet::allocator = NULL;
 	}
 }

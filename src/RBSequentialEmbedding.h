@@ -92,8 +92,8 @@ struct RBSERegion {
 		this->vertex = NULL;
 		this->full = false;
 
-//		if (free_id.size() > 0) {
-		if (false) {
+		if (free_id.size() > 0) {
+//		if (false) {
 			this->id = free_id[free_id.size() - 1];
 			free_id.pop_back();
 		} else {
@@ -113,8 +113,8 @@ struct RBSERegion {
 		this->vertex = region.vertex;
 		this->full = region.full;
 
-//		if (free_id.size() > 0) {
-		if (false) {
+		if (free_id.size() > 0) {
+//		if (false) {
 			this->id = free_id[free_id.size() - 1];
 			free_id.pop_back();
 		} else {
